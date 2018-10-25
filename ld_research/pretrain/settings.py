@@ -4,7 +4,7 @@ from os.path import dirname, join
 from datetime import datetime
 
 # PYTHONBIN (change to yours)
-PYTHONBIN = '/home/yuchen/miniconda3/envs/pommerman/bin/python'
+PYTHONBIN = '/u/luyuchen/miniconda2/envs/pytorch/bin/python'
 SRC_LANG = '.en'    # change this
 TGT_LANG = '.de'    # change this
 
@@ -23,6 +23,7 @@ ROOT_PT_DIR = join(ROOT_DATA_DIR, 'pt_files')
 TOOL_DIR = join(OMNT_FOLDER, 'tools')
 LEARN_BPE_PYTHON = join(TOOL_DIR, 'learn_bpe.py')
 APPLY_BPE_PYTHON = join(TOOL_DIR, 'apply_bpe.py')
+OMNT_PREPROCESS = join(OMNT_FOLDER, 'preprocess.py')
 
 # Storing results
 ROOT_RESULT_FOLDER = join(OMNT_FOLDER, 'runs')

@@ -6,7 +6,7 @@ from torchtext.datasets.translation import IWSLT
 from torchtext import data
 from subprocess import call
 from ld_research.pretrain.settings import ROOT_CORPUS_DIR, PYTHONBIN, LEARN_BPE_PYTHON, APPLY_BPE_PYTHON, \
-    ROOT_PT_DIR, ROOT_DATA_DIR, SRC_LANG, TGT_LANG
+    ROOT_PT_DIR, ROOT_DATA_DIR, SRC_LANG, TGT_LANG, OMNT_PREPROCESS
 
 # Task setup
 CORPUS_DIR = join(ROOT_CORPUS_DIR, 'iwslt', SRC_LANG[1:] + '-' + TGT_LANG[1:])
@@ -52,7 +52,6 @@ OUT_TEST_TGT = join(DATA_DIR, 'test.tgt')
 # Final Output
 PT_DIR = join(ROOT_PT_DIR, 'iwslt', SRC_LANG[1:] + '-' + TGT_LANG[1:])
 PT_PREFIX = join(PT_DIR, 'data')
-OMNT_PREPROCESS = join(dirname(dirname(__file__)), 'preprocess.py')
 
 def _download_corpus_and_moses():
     """ Get IWSLT corpus with moses tokenized """
