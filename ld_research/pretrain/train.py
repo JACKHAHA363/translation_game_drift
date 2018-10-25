@@ -31,6 +31,9 @@ def modify_opt(opt):
     opt.tensorboard_log_dir = os.path.join(EXP_FOLDER, 'logs')
     opt.save_model = os.path.join(EXP_FOLDER, 'model')
     logger.info('Save results to %s' % EXP_FOLDER)
+
+    # Fix bugs
+    opt.gpu_ranks = [0]
     return opt
 
 def main(opt, device_id=None):
@@ -106,7 +109,7 @@ if __name__ == '__main__':
     opt = modify_opt(opt)
 
     # CPU
-    main(opt, -1)
+    #main(opt, -1)
 
     ## GPU
-    #main(opt, 0)
+    main(opt, 0)
