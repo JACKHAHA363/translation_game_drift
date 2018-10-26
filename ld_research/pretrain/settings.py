@@ -10,9 +10,8 @@ def _maybe_makedirs(path_to_dir):
         os.makedirs(path_to_dir)
 
 # PYTHONBIN (change to yours)
-PYTHONBIN = '/u/luyuchen/miniconda2/envs/pytorch/bin/python'
-SRC_LANG = '.en'    # change this
-TGT_LANG = '.de'    # change this
+#PYTHONBIN = '/u/luyuchen/miniconda2/envs/pytorch/bin/python'
+PYTHONBIN = '/home/yuchen/miniconda3/envs/pommerman/bin/python'
 
 # Some Paths
 RESEARCH_FOLDER = dirname(__file__)
@@ -35,5 +34,9 @@ OMNT_PREPROCESS = join(OMNT_FOLDER, 'preprocess.py')
 # Storing results
 ROOT_RESULT_FOLDER = join(OMNT_FOLDER, 'runs')
 PRETRAIN_RESULTS_FOLDER = join(ROOT_RESULT_FOLDER, 'pretrain')
+
+# Experiment
+SRC_LANG = '.en'    # change this
+TGT_LANG = '.de'    # change this
 EXP_FOLDER = join(PRETRAIN_RESULTS_FOLDER,
                   SRC_LANG[1:] + '-' + TGT_LANG[1:] + datetime.now().strftime("/%b-%d_%H-%M-%S"))

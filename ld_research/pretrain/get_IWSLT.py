@@ -1,7 +1,7 @@
 """ Get the IWSLT dataset. Both fr->en, en->fr
 """
-from os.path import dirname, join
-from itertools import product
+from os.path import join
+import torch
 import os
 from torchtext.datasets.translation import IWSLT
 from torchtext import data
@@ -75,6 +75,11 @@ def _apply_BPE(in_file, out_file, lang):
     with open(out_file, 'w') as f:
         call(cmd, stdout=f)
 
+def _get_vocab_pt(src_lang, tgt_lang):
+    """ Return the vocab .pt """
+    pt_dir = join(ROOT_DATA_DIR, 'pretrain', src_lang[1:] + '-' + tgt_lang[1:])
+    return join(pt_dir, 'data.vocab.pt')
+
 #############################################################
 
 def download_corpus_and_moses(src_lang, tgt_lang):
@@ -136,7 +141,7 @@ def apply_BPE(src_lang, tgt_lang):
 
 def omnt_preprocess(src_lang, tgt_lang):
     """ Apply OMNT preprocess """
-    pt_dir = join(ROOT_DATA_DIR, 'pretrain', src_lang[1:] + tgt_lang[1:])
+    pt_dir = join(ROOT_DATA_DIR, 'pretrain', src_lang[1:] + '-' + tgt_lang[1:])
     data_dir = _get_data_dir_path(src_lang, tgt_lang)
     if not os.path.exists(pt_dir):
         print('building pt files {}...'.format(pt_dir))
@@ -151,6 +156,25 @@ def omnt_preprocess(src_lang, tgt_lang):
         call(cmd)
     else:
         print('Found {}, skipping...'.format(pt_dir))
+
+def unifying_english():
+    """ Unifying the english vocab """
+    print('Unifying two vocabs')
+    vocab_fr_en = torch.load(_get_vocab_pt(FR, EN))
+    vocab_en_de = torch.load(_get_vocab_pt(EN, DE))
+
+    # Extend on each other and save
+    en_vocab1 = vocab_fr_en[1][1]
+    en_vocab2 = vocab_en_de[0][1]
+    en_vocab1.extend(en_vocab2)
+    en_vocab2.extend(en_vocab1)
+    assert set(en_vocab1.itos) == set(en_vocab2.itos)
+
+    # Update
+    vocab_fr_en[1] = ('tgt', en_vocab1)
+    vocab_en_de[0] = ('src', en_vocab2)
+    torch.save(vocab_fr_en, _get_vocab_pt(FR, EN))
+    torch.save(vocab_en_de, _get_vocab_pt(EN, DE))
 
 if __name__ == '__main__':
     """ main logic """
@@ -167,7 +191,9 @@ if __name__ == '__main__':
     apply_BPE(FR, EN)
     apply_BPE(EN, DE)
 
-
     # OMNT preprocess to .pt
     omnt_preprocess(FR, EN)
     omnt_preprocess(EN, DE)
+
+    # Unifying ENGLISH verb
+    unifying_english()
