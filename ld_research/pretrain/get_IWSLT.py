@@ -7,20 +7,7 @@ from torchtext.datasets.translation import IWSLT
 from torchtext import data
 from subprocess import call
 from ld_research.pretrain.settings import ROOT_CORPUS_DIR, PYTHONBIN, LEARN_BPE_PYTHON, APPLY_BPE_PYTHON, \
-    ROOT_DATA_DIR, OMNT_PREPROCESS
-
-# Task setup
-FR = '.fr'
-EN = '.en'
-DE = '.de'
-
-# From annotated transformer
-# Config for moses tokenizer
-MAX_LEN = 100   # Discard too long sentence
-BOS_WORD = '<s>'
-EOS_WORD = '</s>'
-BLANK_WORD = "<blank>"
-MIN_FREQ = 1    # Discard too low freq words
+    ROOT_DATA_DIR, OMNT_PREPROCESS, FR, EN, DE, MIN_FREQ, MAX_LEN, EOS_WORD, BLANK_WORD, BOS_WORD
 
 # Prefix for train, valid, test
 TRAIN_PREFIX = 'train'
