@@ -17,14 +17,13 @@ EOS_WORD = '</s>'
 BLANK_WORD = "<blank>"
 MIN_FREQ = 1    # Discard too low freq words
 
+# Python bin
+PYTHONBIN = '/home/yuchen/miniconda3/envs/pommerman/bin/python'
+
 def _maybe_makedirs(path_to_dir):
     """ Create dir if necessary """
     if not os.path.exists(path_to_dir):
         os.makedirs(path_to_dir)
-
-# PYTHONBIN (change to yours)
-#PYTHONBIN = '/u/luyuchen/miniconda2/envs/pytorch/bin/python'
-PYTHONBIN = '/home/yuchen/miniconda3/envs/pommerman/bin/python'
 
 # Some Paths
 LD_RESEARCH_FOLDER = dirname(__file__)
@@ -44,12 +43,9 @@ _maybe_makedirs(LD_FOLDER)
 
 # Store BPE results
 ROOT_BPE_DIR = join(DATA_FOLDER, 'bpe')
-
-# BPE Setup
-TOOL_DIR = join(LD_FOLDER, 'tools')
-LEARN_BPE_PYTHON = join(TOOL_DIR, 'learn_bpe.py')
-APPLY_BPE_PYTHON = join(TOOL_DIR, 'apply_bpe.py')
-OMNT_PREPROCESS = join(LD_FOLDER, 'preprocess.py')
+BPE_TOOLS = join(LD_FOLDER, 'bpe_tools')
+LEARN_JOINT_BPE = join(BPE_TOOLS, 'learn_joint_bpe_and_vocab.py')
+APPLY_BPE = join(BPE_TOOLS, 'apply_bpe.py')
 
 # Storing results
 ROOT_RESULT_FOLDER = join(LD_FOLDER, 'runs')

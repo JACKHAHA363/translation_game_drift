@@ -1,0 +1,3 @@
+[submodule "bpe_tools"]
+	path = bpe_tools
+	url = https://github.com/rsennrich/subword-nmt/tree/master
