@@ -1,7 +1,13 @@
 """ Global config for pretrain
 """
 from os.path import dirname, join
+import os
 from datetime import datetime
+
+def _maybe_makedirs(path_to_dir):
+    """ Create dir if necessary """
+    if not os.path.exists(path_to_dir):
+        os.makedirs(path_to_dir)
 
 # PYTHONBIN (change to yours)
 PYTHONBIN = '/u/luyuchen/miniconda2/envs/pytorch/bin/python'
@@ -12,12 +18,13 @@ TGT_LANG = '.de'    # change this
 RESEARCH_FOLDER = dirname(__file__)
 OMNT_FOLDER = dirname(dirname(RESEARCH_FOLDER))
 
-# Store the actual corpus
+# Store the raw corpus
 ROOT_CORPUS_DIR = join(OMNT_FOLDER, 'corpus')
+_maybe_makedirs(ROOT_CORPUS_DIR)
 
-# Store the BPE and final pt files
+# Store the dataset used for training
 ROOT_DATA_DIR = join(OMNT_FOLDER, 'data')
-ROOT_PT_DIR = join(ROOT_DATA_DIR, 'pt_files')
+_maybe_makedirs(ROOT_DATA_DIR)
 
 # BPE Setup
 TOOL_DIR = join(OMNT_FOLDER, 'tools')
