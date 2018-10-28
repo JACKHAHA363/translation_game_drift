@@ -14,7 +14,8 @@ DE = '.de'
 MAX_LEN = 100   # Discard too long sentence
 BOS_WORD = '<s>'
 EOS_WORD = '</s>'
-BLANK_WORD = "<blank>"
+UNK_WORD = "<UNK>"
+PAD_WORD = "<PAD>"
 MIN_FREQ = 1    # Discard too low freq words
 
 # Python bin

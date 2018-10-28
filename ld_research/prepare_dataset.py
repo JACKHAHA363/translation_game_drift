@@ -18,3 +18,6 @@ if __name__ == '__main__':
 
     # Apply BPE to Multi30k
     apply_bpe_multi30k()
+
+    # Build dataset out of the final corpus
+
