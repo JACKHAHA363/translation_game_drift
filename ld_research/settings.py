@@ -62,3 +62,7 @@ def config_logger():
     console_handler.setFormatter(log_format)
     LOGGER.handlers = [console_handler]
 config_logger()
+
+# General settings for Agent
+EMB_SIZE = 256
+HIDDEN = 256

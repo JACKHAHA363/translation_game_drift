@@ -70,3 +70,10 @@ def test_decoder_greedy():
         assert (endings == VOCAB_SIZE - 1).sum().item() == BATCH_SIZE
     elif samples.size(1) > 20:
         assert False
+
+def test_agent():
+    """ Test and agent """
+    pass
+
+if __name__ == '__main__':
+    test_agent()

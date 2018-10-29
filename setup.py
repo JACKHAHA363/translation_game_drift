@@ -2,10 +2,8 @@
 
 from setuptools import setup
 
-setup(name='OpenNMT-py',
-      description='A python implementation of OpenNMT',
+setup(name='language-drift',
+      description='A python implementation of language_drift paper',
       version='0.4.1',
 
-      packages=['onmt', 'onmt.encoders', 'onmt.modules', 'onmt.tests',
-                'onmt.translate', 'onmt.decoders', 'onmt.inputters',
-                'onmt.models', 'onmt.utils', 'ld_research'])
+      packages=['ld_research'])
