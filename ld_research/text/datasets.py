@@ -184,4 +184,6 @@ class IWSLTDataloader(DataLoader):
 
     def _to_tensor(self, input_list):
         """ Turn a list to tensor """
-        return torch.tensor(input_list, device=self.device)
+        return torch.tensor(input_list,
+                            device=self.device,
+                            dtype=torch.int64)
