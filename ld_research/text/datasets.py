@@ -3,7 +3,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 from collections import namedtuple
-from ld_research.settings import EN, ROOT_BPE_DIR, FR, BOS_WORD, EOS_WORD, LOGGER, UNK_WORD, PAD_WORD
+from ld_research.settings import ROOT_BPE_DIR, BOS_WORD, EOS_WORD, LOGGER, UNK_WORD, PAD_WORD
 from ld_research.text.utils import get_vocab_file
 import os
 
@@ -42,17 +42,19 @@ class Vocab:
         """ Return the word """
         return self.idx2words[index]
 
-    def numerize(self, sentence):
-        """ return a list of int """
-        return [self.get_index(word) for word in sentence.split()]
-
-    def denumerize(self, indexs):
-        """ return a list of char from indexes """
-        return ' '.join([self.get_word(index) for index in indexs])
-
-class IWSLTExample(namedtuple('example', ('src', 'tgt'))):
-    """ Holding result """
-    pass
+    def numerize(self, data):
+        """ Numerize the example with the vocab. Return a torch Tensor
+            by unfolding the structure recursively.
+        """
+        if type(data) is str:
+            return self.get_index(data)
+        elif type(data) is list:
+            result = []
+            for element in data:
+                result.append(self.numerize(element))
+            return result
+        else:
+            raise ValueError('Unkown type {}'.format(type(data)))
 
 class IWSLTDataset(Dataset):
     """ An object for dataset """
@@ -102,18 +104,13 @@ class IWSLTDataset(Dataset):
 
     def __getitem__(self, index):
         """ Return a src and tgt sentence """
-        src_sentence = self.src_text[index]
-        tgt_sentence = self.tgt_text[index]
-        src_ids = self.src_vocab.numerize(src_sentence)
-        tgt_ids = self.tgt_vocab.numerize(tgt_sentence)
+        src_sentence = self.src_text[index].rstrip('\n').split()
+        tgt_sentence = self.tgt_text[index].rstrip('\n').split()
+        return IWSLTExample(src=src_sentence, tgt=tgt_sentence, src_lengths=0, tgt_lengths=0)
 
-        # Append EOS at the end
-        src_ids.append(self.src_vocab.get_index(EOS_WORD))
-        tgt_ids.append(self.tgt_vocab.get_index(EOS_WORD))
-
-        # Append BOS to tgt
-        tgt_ids.insert(0, self.tgt_vocab.get_index(BOS_WORD))
-        return IWSLTExample(src=src_ids, tgt=tgt_ids)
+class IWSLTExample(namedtuple('Example', ('src', 'src_lengths', 'tgt', 'tgt_lengths'))):
+    """ A data structure """
+    pass
 
 class IWSLTDataloader(DataLoader):
     """ My dataloader """
@@ -131,34 +128,60 @@ class IWSLTDataloader(DataLoader):
                                               collate_fn=self.collate_fn,
                                               drop_last=drop_last)
         self.device = self.dataset.device
+        self.src_vocab = self.dataset.src_vocab
+        self.tgt_vocab = self.dataset.tgt_vocab
 
-    def _pad_to_same_length(self, sentences, pad_index):
+    def _pad_to_same_length(self, sentences, pad_token=PAD_WORD,
+                            init_token=None, end_token=None):
         """ Given a list of sentences. Pad each to the maximum length.
             :param sentences: A list of list of indices
-            :param pad_index: The index standing for <PAD>
-            :return A list of list with same length
+            :param pad_token: The padding token
+            :param init_token: The initial token. If None don't pad
+            :param end_token: The ending token. If None don't pad
+            :return (results, lenghs). The padded sentences along with the lengths./
         """
         max_len = max([len(sentence) for sentence in sentences])
-        new_sentences = []
+        results = []
+        lengths = []
         for sentence in sentences:
-            new_sentence = sentence[:]
-            new_sentence += [pad_index] * (max_len - len(new_sentence))
-            new_sentences += [new_sentence]
-        return new_sentences
+            # Beginning
+            padded, length = [], 0
+            if init_token:
+                padded += [init_token]
+                length += 1
+
+            # Original sentence
+            padded += sentence
+            length += len(sentence)
+
+            # End of sentence
+            if end_token:
+                padded += [end_token]
+                length += 1
+
+            # Padding
+            padded += [pad_token] * (max_len - len(sentence))
+
+            # Add to results
+            results += [padded]
+            lengths += [length]
+        return results, lengths
 
     def collate_fn(self, batch):
         """ Merge a list of IWSLTExample into one IWSLTExample """
-        new_src = self._pad_to_same_length(sentences=[example.src for example in batch],
-                                           pad_index=self.dataset.src_vocab.get_index(PAD_WORD))
-        new_tgt = self._pad_to_same_length(sentences=[example.tgt for example in batch],
-                                           pad_index=self.dataset.tgt_vocab.get_index(PAD_WORD))
-        return IWSLTExample(src=torch.tensor(new_src, device=self.device),
-                            tgt=torch.tensor(new_tgt, device=self.device))
+        src, src_lengths = self._pad_to_same_length(sentences=[example.src for example in batch],
+                                                    pad_token=PAD_WORD, init_token=None,
+                                                    end_token=EOS_WORD)
+        tgt, tgt_lengths = self._pad_to_same_length(sentences=[example.tgt for example in batch],
+                                                    pad_token=PAD_WORD, init_token=BOS_WORD,
+                                                    end_token=EOS_WORD)
+        src = self._to_tensor(self.src_vocab.numerize(src))
+        tgt = self._to_tensor(self.tgt_vocab.numerize(tgt))
+        src_lengths = self._to_tensor(src_lengths)
+        tgt_lengths = self._to_tensor(tgt_lengths)
+        return IWSLTExample(src=src, src_lengths=src_lengths,
+                            tgt=tgt, tgt_lengths=tgt_lengths)
 
-if __name__ == '__main__':
-    dset = IWSLTDataset(src_lang=FR, tgt_lang=EN, mode='test')
-    test_loader = IWSLTDataloader(dataset=dset, batch_size=10)
-    examples = next(iter(test_loader))
-
-
-
+    def _to_tensor(self, input_list):
+        """ Turn a list to tensor """
+        return torch.tensor(input_list, device=self.device)
