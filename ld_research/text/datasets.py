@@ -9,15 +9,20 @@ import os
 
 class Vocab:
     """ the vocab object """
-    def __init__(self, lang):
+    def __init__(self, lang=None, words_with_freq=None):
         """ constructor """
-        self.vocab_file = get_vocab_file(lang)
-        self.words_with_freq = dict()
-        with open(self.vocab_file, 'r') as f:
-            lines = f.readlines()
-            for line in lines:
-                word, freq = line.split()
-                self.words_with_freq[word] = freq
+        if words_with_freq:
+            self.words_with_freq = words_with_freq
+        elif lang:
+            vocab_file = get_vocab_file(lang)
+            self.words_with_freq = dict()
+            with open(vocab_file, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    word, freq = line.split()
+                    self.words_with_freq[word] = freq
+        else:
+            raise ValueError('lang and words_with_freq can not be both None')
 
         # Add utlity tokens
         self.words_with_freq[BOS_WORD] = 1
@@ -29,6 +34,10 @@ class Vocab:
         self.idx2words = list(self.words_with_freq.keys())
         self.words2idx = {word: self.idx2words.index(word)
                           for word in self.idx2words}
+
+    def __len__(self):
+        """ Return total number of words """
+        return len(self.idx2words)
 
     def get_index(self, word):
         """ Return the index of a word """

@@ -1,7 +1,10 @@
 """ Test GRU
 """
 import torch
-from ld_research.agent.grus import GRUDecoder, GRUEncoder
+import argparse
+from ld_research.model.grus import GRUDecoder, GRUEncoder
+from ld_research.model import Agent
+from ld_research.text import Vocab
 
 VOCAB_SIZE = 500
 EMB_SIZE = 64
@@ -56,7 +59,6 @@ def test_decoder_greedy():
     encoder = GRUEncoder(embeddings, hidden_size=HIDDEN_SIZE)
     decoder = GRUDecoder(embeddings, hidden_size=HIDDEN_SIZE)
     src = _prepare_batch(SEQ_LEN)
-    tgt = _prepare_batch(TGT_SEQ_LEN)
     states, memory = encoder.encode(src=src)
 
     # Teacher force
@@ -72,8 +74,25 @@ def test_decoder_greedy():
         assert False
 
 def test_agent():
-    """ Test and agent """
-    pass
+    """ Test and model """
+    words_with_freq = {str(i): i for i in range(500)}
+    vocab = Vocab(words_with_freq=words_with_freq)
+    opt = argparse.Namespace()
+    opt.emb_size = EMB_SIZE
+    opt.hidden_size = HIDDEN_SIZE
+    opt.label_smoothing = 0.1
+    agent = Agent(src_vocab=vocab, tgt_vocab=vocab,
+                  opt=opt)
+
+    # prepare fake batch
+    src = _prepare_batch(SEQ_LEN)
+    tgt = _prepare_batch(TGT_SEQ_LEN)
+    src_lengths = torch.randint(SEQ_LEN, size=(BATCH_SIZE,),
+                                dtype=torch.int64)
+    tgt_lengths = torch.randint(TGT_SEQ_LEN, size=(BATCH_SIZE,),
+                                dtype=torch.int64)
+    agent.compute_loss(src=src, tgt=tgt, tgt_lengths=tgt_lengths,
+                       src_lengths=src_lengths)
 
 if __name__ == '__main__':
     test_agent()

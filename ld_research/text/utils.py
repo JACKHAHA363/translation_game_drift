@@ -3,7 +3,7 @@
 from os.path import join, basename
 import os
 from itertools import product
-from settings import ROOT_CORPUS_DIR, FR, EN, DE, LOGGER, ROOT_TOK_DIR, ROOT_BPE_DIR, LEARN_JOINT_BPE, APPLY_BPE, \
+from ld_research.settings import ROOT_CORPUS_DIR, FR, EN, DE, LOGGER, ROOT_TOK_DIR, ROOT_BPE_DIR, LEARN_JOINT_BPE, APPLY_BPE, \
     PYTHONBIN, MIN_FREQ
 from torchtext.datasets import IWSLT
 from torchtext.data import get_tokenizer

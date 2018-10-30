@@ -2,7 +2,7 @@
 """
 import torch
 from enum import Enum
-from ld_research.agent.utils import GlobalAttention
+from ld_research.model.utils import GlobalAttention
 
 class GRUEncoder(torch.nn.Module):
     """ The GRU Encoder """
