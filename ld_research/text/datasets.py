@@ -16,10 +16,10 @@ class Vocab:
         elif lang:
             vocab_file = get_vocab_file(lang)
             self.words_with_freq = dict()
-            with open(vocab_file, 'r') as f:
+            with open(vocab_file, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
                 for line in lines:
-                    word, freq = line.split()
+                    word, freq = line.rstrip('\n').split()
                     self.words_with_freq[word] = freq
         else:
             raise ValueError('lang and words_with_freq can not be both None')
@@ -86,13 +86,13 @@ class IWSLTDataset(Dataset):
         self.tgt_vocab = Vocab(lang=tgt_lang)
         self.bpe_corpus_dir = os.path.join(ROOT_BPE_DIR, 'iwslt',
                                            '{}-{}'.format(src_lang[1:], tgt_lang[1:]))
-        self.src_text, self.tgt_text = self.get_txt_name(mode)
+        self.src_text, self.tgt_text = self.get_txt(mode)
         assert len(self.src_text) == len(self.tgt_text), "Not paired datset, something is wrong"
         if type(device) == str:
             device = torch.device(device)
         self.device = device
 
-    def get_txt_name(self, mode='train'):
+    def get_txt(self, mode='train'):
         """ Return the name of the txt """
         base_text_name = '{}.' + self.src_lang[1:] + '-' \
                          + self.tgt_lang[1:]
@@ -102,7 +102,8 @@ class IWSLTDataset(Dataset):
                                base_text_name_src.format(self.prefix[mode]))
         tgt_txt = os.path.join(self.bpe_corpus_dir,
                                base_text_name_tgt.format(self.prefix[mode]))
-        with open(src_txt, 'r') as src_file, open(tgt_txt, 'r') as tgt_file:
+        with open(src_txt, 'r', encoding='utf-8') as src_file, \
+                open(tgt_txt, 'r', encoding='utf-8') as tgt_file:
             src_contents = src_file.readlines()
             tgt_contents = tgt_file.readlines()
         return src_contents, tgt_contents

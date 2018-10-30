@@ -49,6 +49,9 @@ class Trainer:
         # Get writer
         self.writer = SummaryWriter(log_dir=os.path.join(self.opt.save_dir, 'tensorboard'))
 
+        # Save Opt
+        self.save_opt()
+
     def start_training(self):
         """ Start training """
         LOGGER.info('Start training...')
@@ -141,8 +144,7 @@ class Trainer:
                 beta2=opt.adam_beta2,
                 adagrad_accum=opt.adagrad_accumulator_init,
                 decay_method=opt.decay_method,
-                warmup_steps=opt.warmup_steps,
-                model_size=opt.rnn_size)
+                warmup_steps=opt.warmup_steps)
 
         # Set parameters by initialize new torch optim inside
         self.optimizer.set_parameters(params=self.agent.named_parameters())
@@ -171,9 +173,11 @@ class Trainer:
 
     def load_opt(self, save_dir):
         """ Load opt from save dir """
-        with open(os.path.join(save_dir, 'opt.json'), 'r') as f:
-            opt_dict = json.load(f)
-            self.opt = argparse.Namespace(**opt_dict)
+        opt_json = os.path.join(save_dir, 'opt.json')
+        if os.path.exists(opt_json):
+            with open(opt_json, 'r') as f:
+                opt_dict = json.load(f)
+                self.opt = argparse.Namespace(**opt_dict)
 
     def save_opt(self):
         """ Save the opt to save_dir """
@@ -331,7 +335,6 @@ class NMTLoss(torch.nn.Module):
             :param tgt_vocab_size: size of target vocabulary
             :param device: The device of this loss
         """
-        assert 0.0 < label_smoothing <= 1.0
         super(NMTLoss, self).__init__()
         smoothing_value = label_smoothing / (tgt_vocab_size - 2)
         one_hot = torch.full((tgt_vocab_size,), smoothing_value)

@@ -15,7 +15,6 @@ if __name__ == '__main__':
                         help='The source language')
     parser.add_argument('-emb_size', default=256, type=int)
     parser.add_argument('-hidden_size', default=256, type=int)
-    parser.add_argument('-label_smoothing', default=0.1, type=float)
     parser.add_argument('-device', default='cpu', type=str,
                         help='The device. None, cpu, cuda, cuda/cpu:rank')
 
@@ -102,3 +101,4 @@ if __name__ == '__main__':
 
     opt = parser.parse_args()
     trainer = Trainer(opt)
+    trainer.start_training()
