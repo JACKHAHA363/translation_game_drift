@@ -1,12 +1,8 @@
 """ Pretrain the agent on IWSLT
 """
 import argparse
-import os
-import json
-import torch
-from ld_research.settings import FR, EN, DE, LOGGER
-from ld_research.text.datasets import IWSLTDataset, IWSLTDataloader
-from ld_research.model import Agent
+from ld_research.settings import FR, EN, DE
+from ld_research.training.iwslt import Trainer
 
 if __name__ == '__main__':
     """ Parse from command """
@@ -24,7 +20,6 @@ if __name__ == '__main__':
                         help='The device. None, cpu, cuda, cuda/cpu:rank')
 
     # optimizer and learning rate
-    parser = parser.add_argument_group('Optimization- Type')
     parser.add_argument('-batch_size', type=int, default=64,
                         help='Maximum batch size for training')
     parser.add_argument('-accum_count', type=int, default=1,
