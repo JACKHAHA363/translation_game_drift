@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     # Saving and Logging
     parser.add_argument('-save_dir', default='./save_dir', type=str)
-    parser.add_argument('-logging_steps', default=50, type=int,
+    parser.add_argument('-logging_steps', default=2, type=int,
                         help='logging frequency')
     parser.add_argument('-checkpoint_steps', default=100, type=int,
                         help='checkpoint frequency')

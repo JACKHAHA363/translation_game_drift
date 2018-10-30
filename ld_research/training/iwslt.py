@@ -57,7 +57,7 @@ class Trainer:
         LOGGER.info('Start training...')
         step = self.optimizer.curr_step + 1
         train_stats = StatisticsReport()
-        train_start = time.start()
+        train_start = time.time()
         while step <= self.opt.train_steps:
             for i, batch in enumerate(self.train_loader):
                 logprobs, targets, masks = self.agent(src=batch.src,
@@ -83,7 +83,7 @@ class Trainer:
                 (loss / batch_stats.n_words).backward()
                 self.optimizer.step()
 
-                if step % self.opt.valid_steps == 0:
+                if (step + 1) % self.opt.valid_steps == 0:
                     self.validate(step=step,
                                   train_start=train_start)
 
@@ -159,9 +159,9 @@ class Trainer:
         train_set = IWSLTDataset(src_lang, tgt_lang, 'train', device=self.opt.device)
         valid_set = IWSLTDataset(src_lang, tgt_lang, 'valid', device=self.opt.device)
         self.train_loader = IWSLTDataloader(train_set, batch_size=self.opt.batch_size,
-                                            shuffle=True, num_workers=4, pin_memory=True)
+                                            shuffle=True, num_workers=4)
         self.valid_loader = IWSLTDataloader(valid_set, batch_size=self.opt.batch_size,
-                                            shuffle=False, num_workers=4, pin_memory=True)
+                                            shuffle=False, num_workers=4)
         self.src_vocab = self.train_loader.src_vocab
         self.tgt_vocab = self.train_loader.tgt_vocab
         self.agent = Agent(src_vocab=self.src_vocab,
@@ -173,11 +173,15 @@ class Trainer:
 
     def load_opt(self, save_dir):
         """ Load opt from save dir """
+        LOGGER.info('Loading option in {}...'.format(save_dir))
         opt_json = os.path.join(save_dir, 'opt.json')
         if os.path.exists(opt_json):
+            LOGGER.info('Found json file in {}...'.format(save_dir))
             with open(opt_json, 'r') as f:
                 opt_dict = json.load(f)
                 self.opt = argparse.Namespace(**opt_dict)
+        else:
+            LOGGER.info('No json file in {}. Use current opt...'.format(save_dir))
 
     def save_opt(self):
         """ Save the opt to save_dir """
@@ -186,8 +190,7 @@ class Trainer:
 
     def _report_training(self, step, train_stats, train_start):
         """ Report the training """
-        # Report every 100
-        if step % self.opt.logging_steps == 0:
+        if (step + 1) % self.opt.logging_steps == 0:
             train_stats.output(step=step,
                                learning_rate=self.optimizer.learning_rate,
                                num_steps=self.opt.train_steps,
@@ -200,7 +203,7 @@ class Trainer:
 
     def _checkpoint(self, step):
         """ Maybe do the checkpoint of model """
-        if step % self.opt.checkpoint_steps:
+        if (step + 1) % self.opt.checkpoint_steps == 0:
             LOGGER.info('Checkpoint step {}...'.format(step))
             checkpoint = {'agent': self.agent.state_dict(),
                           'optimizer': self.optimizer}
@@ -214,7 +217,7 @@ class Trainer:
         all_ckpt = glob.glob(os.path.join(save_dir, 'checkpoint.*.pt'))
         latest_ckpt_path = None
         if all_ckpt:
-            all_steps = [ckpt_name.split('.')[1] for ckpt_name in all_ckpt]
+            all_steps = [int(os.path.basename(ckpt_name).split('.')[1]) for ckpt_name in all_ckpt]
             latest_step = max(all_steps)
             latest_ckpt_path = os.path.join(save_dir, 'checkpoint.{}.pt'.format(latest_step))
         return latest_ckpt_path
@@ -260,7 +263,7 @@ class StatisticsReport(object):
             :return: The number correct
         """
         _, preds = torch.max(logprobs, dim=-1)
-        corrects = (preds == targets) * masks
+        corrects = (preds == targets).float() * masks
         return torch.sum(corrects).item()
 
     def update(self, stat):
