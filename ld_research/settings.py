@@ -3,6 +3,7 @@
 from os.path import dirname, join
 import logging
 import os
+import sys
 
 # Language
 FR = '.fr'
@@ -19,7 +20,7 @@ PAD_WORD = "<PAD>"
 MIN_FREQ = 1    # Discard too low freq words
 
 # Python bin
-PYTHONBIN = '/home/yuchen/miniconda3/envs/pommerman/bin/python'
+PYTHONBIN = sys.executable
 
 def _maybe_makedirs(path_to_dir):
     """ Create dir if necessary """
