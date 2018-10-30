@@ -1,6 +1,5 @@
 """ A wrapper of optimizer from the OpenNMT-py
 """
-import torch
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
 
@@ -130,6 +129,23 @@ class Optimizer(object):
             clip_grad_norm_(self.params, self.max_grad_norm)
         self.optimizer.step()
 
+    def load_state_dict(self, state_dict):
+        """ load state dict """
+        self.optimizer.load_state_dict(state_dict)
+
+    def state_dict(self):
+        """ Get the state dict """
+        return self.optimizer.state_dict()
+
+    def zero_grad(self):
+        """ zero out gradient """
+        return self.optimizer.zero_grad()
+
+    @property
+    def curr_step(self):
+        """ Return the current step """
+        return self._step
+
 class MultipleOptimizer(object):
     """ Implement multiple optimizers needed for sparse adam """
 
@@ -162,3 +178,5 @@ class MultipleOptimizer(object):
         for i in range(len(state_dicts)):
             self.optimizers[i].load_state_dict(state_dicts[i])
 
+    def to(self, ):
+        self.optimizers.to()

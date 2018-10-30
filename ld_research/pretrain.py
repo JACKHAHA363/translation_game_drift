@@ -8,70 +8,6 @@ from ld_research.settings import FR, EN, DE, LOGGER
 from ld_research.text.datasets import IWSLTDataset, IWSLTDataloader
 from ld_research.model import Agent
 
-class Trainer:
-    """ A trainer object that coordinate model, dataset and compute stats """
-    def __init__(self, opt):
-        """ A constructor """
-        self.opt = opt
-        assert (opt.src_lang, opt.tgt_lang) in [(FR, EN), (EN, DE)]
-        from_ckpt = False
-        if not os.path.exists(opt.save_dir):
-            from_ckpt = True
-            os.makedirs(opt.save_dir)
-
-        # Load opt from ckpt
-        if from_ckpt:
-            self.load_opt(opt.save_dir)
-
-        # Get data/model
-        self._build_dataloader_and_model(from_ckpt)
-
-        # Get optimizer
-        self._build_optimizer(from_ckpt)
-
-    def train_for_one_epoch(self):
-        """ Start training """
-        self.agent.train()
-
-    def _build_optimizer(self, from_ckpt=False):
-        """ Get optimizer """
-
-    def _build_dataloader_and_model(self, from_ckpt=False):
-        """ Build data and model """
-        src_lang, tgt_lang = self.opt.src_lang, self.opt.tgt_lang
-        train_set = IWSLTDataset(src_lang, tgt_lang, 'train', device=self.opt.device)
-        valid_set = IWSLTDataset(src_lang, tgt_lang, 'valid', device=self.opt.device)
-        self.train_loader = IWSLTDataloader(train_set, batch_size=opt.batch_size,
-                                            shuffle=True, num_workers=4, pin_memory=True)
-        self.valid_loader = IWSLTDataloader(valid_set, batch_size=opt.batch_size,
-                                            shuffle=False, num_workers=4, pin_memory=True)
-        self.src_vocab = self.train_loader.src_vocab
-        self.tgt_vocab = self.train_loader.tgt_vocab
-        self.agent = Agent(src_vocab=self.src_vocab,
-                           tgt_vocab=self.tgt_vocab,
-                           opt=self.opt)
-        if from_ckpt:
-            self.load_model()
-        self.agent.to(device=torch.device(opt.device))
-
-    def load_opt(self, save_dir):
-        """ Load opt from save dir """
-        with open(os.path.join(save_dir, 'opt.json'), 'r') as f:
-            opt_dict = json.load(f)
-            self.opt = argparse.Namespace(**opt_dict)
-
-    def save_opt(self):
-        """ Save the opt to save_dir """
-        with open(os.path.join(self.opt.save_dir, 'opt.json'), 'w') as f:
-            f.write(json.dumps(self.opt.__dict__))
-
-    def load_model(self):
-        """ Load from agent """
-        LOGGER.info('Loading latest model from {}...'.format(self.opt.save_dir))
-        state_dict = torch.load(os.path.join(self.opt.save_dir, 'latest.pt'),
-                                map_location=lambda storage, loc: storage)
-        self.agent.load_state_dict(state_dict)
-
 if __name__ == '__main__':
     """ Parse from command """
     parser = argparse.ArgumentParser('Pretrain')
@@ -83,14 +19,66 @@ if __name__ == '__main__':
                         help='The source language')
     parser.add_argument('-emb_size', default=256, type=int)
     parser.add_argument('-hidden_size', default=256, type=int)
-    parser.add_argument('-batch_size', default=128, type=int)
     parser.add_argument('-label_smoothing', default=0.1, type=float)
     parser.add_argument('-device', default='cpu', type=str,
                         help='The device. None, cpu, cuda, cuda/cpu:rank')
 
-    # optimizer
+    # optimizer and learning rate
+    parser = parser.add_argument_group('Optimization- Type')
+    parser.add_argument('-batch_size', type=int, default=64,
+                        help='Maximum batch size for training')
+    parser.add_argument('-accum_count', type=int, default=1,
+                        help="""Accumulate gradient this many times.
+                        Approximately equivalent to updating
+                        batch_size * accum_count batches at once.
+                        Recommended for Transformer.""")
+    parser.add_argument('-valid_steps', type=int, default=10000,
+                        help='Perfom validation every X steps')
+    parser.add_argument('-train_steps', type=int, default=100000,
+                        help='Number of training steps')
     parser.add_argument('-optim', default='sgd',
-                        choices=['sgd', 'adagrad', 'adadelta', 'adam'])
+                        choices=['sgd', 'adagrad', 'adadelta', 'adam'],
+                        help="""Optimization method.""")
+    parser.add_argument('-adagrad_accumulator_init', type=float, default=0,
+                        help="""Initializes the accumulator values in adagrad.
+                        Mirrors the initial_accumulator_value option
+                        in the tensorflow adagrad (use 0.1 for their default).
+                        """)
+    parser.add_argument('-max_grad_norm', type=float, default=5,
+                        help="""If the norm of the gradient vector exceeds this,
+                        renormalize it to have the norm equal to
+                        max_grad_norm""")
+    parser.add_argument('-dropout', type=float, default=0.3,
+                        help="Dropout probability; applied in LSTM stacks.")
+    parser.add_argument('-truncated_decoder', type=int, default=0,
+                        help="""Truncated bptt.""")
+    parser.add_argument('-adam_beta1', type=float, default=0.9,
+                        help="""The beta1 parameter used by Adam.
+                        Almost without exception a value of 0.9 is used in
+                        the literature, seemingly giving good results,
+                        so we would discourage changing this value from
+                        the default without due consideration.""")
+    parser.add_argument('-adam_beta2', type=float, default=0.999,
+                        help="""The beta2 parameter used by Adam.
+                        Typically a value of 0.999 is recommended, as this is
+                        the value suggested by the original paper describing
+                        Adam, and is also the value adopted in other frameworks
+                        such as Tensorflow and Kerras, i.e. see:
+                        https://www.tensorflow.org/api_docs/python/tf/train/AdamOptimizer
+                        https://keras.io/optimizers/ .
+                        Whereas recently the paper "Attention is All You Need"
+                        suggested a value of 0.98 for beta2, this parameter may
+                        not work well for normal models / default
+                        baselines.""")
+    parser.add_argument('-label_smoothing', type=float, default=0.0,
+                        help="""Label smoothing value epsilon.
+                        Probabilities of all non-true labels
+                        will be smoothed by epsilon / (vocab_size - 1).
+                        Set to zero to turn off label smoothing.
+                        For more detailed information, see:
+                        https://arxiv.org/abs/1512.00567""")
+
+    # learning rate
     parser.add_argument('-learning_rate', type=float, default=1.0,
                         help="""Starting learning rate.
                         Recommended settings: sgd = 1, adagrad = 0.1,
@@ -106,7 +94,7 @@ if __name__ == '__main__':
     parser.add_argument('-decay_steps', type=int, default=10000,
                         help="""Decay every decay_steps""")
     parser.add_argument('-decay_method', type=str, default="",
-                        choices=['noam'], help="Use a custom decay rate.")
+                        choices=[''], help="Use a custom decay rate. noam not supported")
     parser.add_argument('-warmup_steps', type=int, default=4000,
                         help="""Number of warmup steps for custom decay.""")
 
