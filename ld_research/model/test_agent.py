@@ -93,6 +93,3 @@ def test_agent():
                                 dtype=torch.int64)
     agent.compute_loss(src=src, tgt=tgt, tgt_lengths=tgt_lengths,
                        src_lengths=src_lengths)
-
-if __name__ == '__main__':
-    test_agent()
