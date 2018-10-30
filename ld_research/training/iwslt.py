@@ -7,7 +7,7 @@ import json
 import time
 import math
 from tensorboardX import SummaryWriter
-
+import glob
 from torch.nn import functional as F
 
 from ld_research.settings import FR, EN, DE, LOGGER
@@ -21,20 +21,25 @@ class Trainer:
         """ A constructor """
         self.opt = opt
         assert (opt.src_lang, opt.tgt_lang) in [(FR, EN), (EN, DE)]
-        from_ckpt = False
-        if not os.path.exists(opt.save_dir):
-            from_ckpt = True
-            os.makedirs(opt.save_dir)
 
-        # Load opt from ckpt
-        if from_ckpt:
-            self.load_opt(opt.save_dir)
+        # Load opt
+        if os.path.exists(self.opt.save_dir):
+            self.load_opt(self.opt.save_dir)
+        else:
+            os.makedirs(self.opt.save_dir)
+
+        # Checkpoint
+        latest_ckpt_path = self._get_latest_checkpoint_path()
+        latest_ckpt = None
+        if latest_ckpt_path:
+            latest_ckpt = torch.load(latest_ckpt_path,
+                                     map_location=lambda storage, loc: storage)
 
         # Get data/model
-        self._build_dataloader_and_model(from_ckpt)
+        self._build_dataloader_and_model(latest_ckpt)
 
         # Get optimizer
-        self._build_optimizer(from_ckpt)
+        self._build_optimizer(latest_ckpt)
 
         # Get Loss
         self.criterion = NMTLoss(label_smoothing=self.opt.label_smoothing,
@@ -69,7 +74,6 @@ class Trainer:
                                                                masks=masks,
                                                                targets=targets)
                 train_stats.update(batch_stats)
-                train_stats = self._report_training(step, train_stats)
 
                 # Backward and learing
                 self.optimizer.zero_grad()
@@ -77,20 +81,54 @@ class Trainer:
                 self.optimizer.step()
 
                 if step % self.opt.valid_steps == 0:
-                    self.validate()
+                    self.validate(step=step,
+                                  train_start=train_start)
+
+                # Logging and saving
+                train_stats = self._report_training(step, train_stats, train_start)
+                self._checkpoint(step)
+
+                # increment step
                 step += 1
 
-    def validate(self):
+    def validate(self, step, train_start):
         """ Validatation """
-        pass
+        self.agent.eval()
+        valid_stats = StatisticsReport()
 
-    def _build_optimizer(self, from_ckpt=False):
+        for batch in self.valid_loader:
+            logprobs, targets, masks = self.agent(src=batch.src,
+                                                  tgt=batch.tgt,
+                                                  src_lengths=batch.src_lengths,
+                                                  tgt_lengths=batch.tgt_lengths)
+            loss = self.criterion(logprobs.view(-1, len(self.tgt_vocab)),
+                                  targets.contiguous().view(-1))
+            loss = loss.view(logprobs.size(0), logprobs.size(1))
+            if masks is not None:
+                loss = torch.sum(loss * masks)
+            else:
+                loss = torch.sum(loss)
+            batch_stats = StatisticsReport.get_batch_stats(batch=batch,
+                                                           logprobs=logprobs,
+                                                           loss=loss,
+                                                           masks=masks,
+                                                           targets=targets)
+            valid_stats.update(batch_stats)
+
+        # Reporting
+        LOGGER.info('Validation perplexity: %g' % valid_stats.ppl())
+        LOGGER.info('Validation accuracy: %g' % valid_stats.accuracy())
+        valid_stats.log_tensorboard(prefix='valid',
+                                    learning_rate=self.optimizer.learning_rate,
+                                    step=step,
+                                    train_start=train_start)
+
+    def _build_optimizer(self, ckpt=None):
         """ Get optimizer """
         saved_state_dict = None
-        if from_ckpt:
+        if ckpt:
             LOGGER.info('Loading the optimizer info from {}...'.format(self.opt.save_dir))
-            self.optimizer = torch.load(os.path.join(self.opt.save_dir, 'latest.optimizer.pt'),
-                                        map_location=lambda storage, loc: storage)
+            self.optimizer = ckpt['optimizer']
             saved_state_dict = self.optimizer.state_dict()
         else:
             opt = self.opt
@@ -107,13 +145,13 @@ class Trainer:
                 model_size=opt.rnn_size)
 
         # Set parameters by initialize new torch optim inside
-        self.optimizer.set_parameters(params=self.agent.parameters())
+        self.optimizer.set_parameters(params=self.agent.named_parameters())
 
         # Set the states
         if saved_state_dict is not None:
             self.optimizer.load_state_dict(saved_state_dict)
 
-    def _build_dataloader_and_model(self, from_ckpt=False):
+    def _build_dataloader_and_model(self, ckpt=None):
         """ Build data and model """
         src_lang, tgt_lang = self.opt.src_lang, self.opt.tgt_lang
         train_set = IWSLTDataset(src_lang, tgt_lang, 'train', device=self.opt.device)
@@ -127,8 +165,8 @@ class Trainer:
         self.agent = Agent(src_vocab=self.src_vocab,
                            tgt_vocab=self.tgt_vocab,
                            opt=self.opt)
-        if from_ckpt:
-            self.load_model()
+        if ckpt:
+            self.agent.load_state_dict(ckpt['agent'])
         self.agent.to(device=torch.device(self.opt.device))
 
     def load_opt(self, save_dir):
@@ -142,17 +180,10 @@ class Trainer:
         with open(os.path.join(self.opt.save_dir, 'opt.json'), 'w') as f:
             f.write(json.dumps(self.opt.__dict__))
 
-    def load_model(self):
-        """ Load from agent """
-        LOGGER.info('Loading latest model from {}...'.format(self.opt.save_dir))
-        state_dict = torch.load(os.path.join(self.opt.save_dir, 'latest.pt'),
-                                map_location=lambda storage, loc: storage)
-        self.agent.load_state_dict(state_dict)
-
     def _report_training(self, step, train_stats, train_start):
         """ Report the training """
         # Report every 100
-        if step % 100 == 0:
+        if step % self.opt.logging_steps == 0:
             train_stats.output(step=step,
                                learning_rate=self.optimizer.learning_rate,
                                num_steps=self.opt.train_steps,
@@ -162,6 +193,27 @@ class Trainer:
                                         step=step, train_start=train_start)
             train_stats = StatisticsReport()
         return train_stats
+
+    def _checkpoint(self, step):
+        """ Maybe do the checkpoint of model """
+        if step % self.opt.checkpoint_steps:
+            LOGGER.info('Checkpoint step {}...'.format(step))
+            checkpoint = {'agent': self.agent.state_dict(),
+                          'optimizer': self.optimizer}
+            ckpt_name = 'checkpoint.{}.pt'.format(step)
+            ckpt_path = os.path.join(self.opt.save_dir, ckpt_name)
+            torch.save(checkpoint, ckpt_path)
+
+    def _get_latest_checkpoint_path(self):
+        """ Return the path of latest checkpoint from the save_dir. None if no checkpoint found """
+        save_dir = self.opt.save_dir
+        all_ckpt = glob.glob(os.path.join(save_dir, 'checkpoint.*.pt'))
+        latest_ckpt_path = None
+        if all_ckpt:
+            all_steps = [ckpt_name.split('.')[1] for ckpt_name in all_ckpt]
+            latest_step = max(all_steps)
+            latest_ckpt_path = os.path.join(save_dir, 'checkpoint.{}.pt'.format(latest_step))
+        return latest_ckpt_path
 
 class StatisticsReport(object):
     """

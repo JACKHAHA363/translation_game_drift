@@ -99,7 +99,11 @@ if __name__ == '__main__':
                         help="""Number of warmup steps for custom decay.""")
 
     # Saving and Logging
-    parser.add_argument('--save_dir', default='./save_dir', type=str)
+    parser.add_argument('-save_dir', default='./save_dir', type=str)
+    parser.add_argument('-logging_steps', default=50, type=int,
+                        help='logging frequency')
+    parser.add_argument('-checkpoint_steps', default=100, type=int,
+                        help='checkpoint frequency')
 
     opt = parser.parse_args()
     trainer = Trainer(opt)
