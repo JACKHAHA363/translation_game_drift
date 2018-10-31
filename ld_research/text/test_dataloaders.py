@@ -5,8 +5,7 @@
 from ld_research.settings import EN, FR
 from text import IWSLTDataset, IWSLTDataloader
 
-
-def test_dataloader():
+def test_iwslt():
     """ Test data loader """
     dset = IWSLTDataset(src_lang=FR, tgt_lang=EN, mode='test')
     test_loader = IWSLTDataloader(dataset=dset, batch_size=10)

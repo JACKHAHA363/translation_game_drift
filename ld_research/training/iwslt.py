@@ -155,11 +155,17 @@ class Trainer:
             actual += self.tgt_vocab.to_sentences(ids=sample_ids.tolist())
 
         # Modify reference to have an extra list wrapper
-        bleu_2 = corpus_bleu(references, actual, weights=(0.5, 0.5, 0, 0))
-        bleu_4 = corpus_bleu(references, actual, weights=(0.25, 0.25, 0.25, 0.25))
-        LOGGER.info('Validation bleu_2: {}'.format(bleu_2))
-        LOGGER.info('Validation bleu_4: {}'.format(bleu_4))
+        bleu_1 = corpus_bleu(references, actual, weights=(1.0, 0, 0, 0)) * 100
+        bleu_2 = corpus_bleu(references, actual, weights=(0.5, 0.5, 0, 0)) * 100
+        bleu_3 = corpus_bleu(references, actual, weights=(1/3., 1/3., 1/3., 0)) * 100
+        bleu_4 = corpus_bleu(references, actual, weights=(0.25, 0.25, 0.25, 0.25)) * 100
+        LOGGER.info('Validation bleu_1: {:.2f}'.format(bleu_1))
+        LOGGER.info('Validation bleu_2: {:.2f}'.format(bleu_2))
+        LOGGER.info('Validation bleu_3: {:.2f}'.format(bleu_3))
+        LOGGER.info('Validation bleu_4: {:.2f}'.format(bleu_4))
+        self.writer.add_scalar('valid/bleu1', bleu_1, step, walltime=train_start-time.time())
         self.writer.add_scalar('valid/bleu2', bleu_2, step, walltime=train_start-time.time())
+        self.writer.add_scalar('valid/bleu3', bleu_3, step, walltime=train_start-time.time())
         self.writer.add_scalar('valid/bleu4', bleu_4, step, walltime=train_start-time.time())
 
 

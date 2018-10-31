@@ -35,7 +35,7 @@ class IWSLTDataset(Dataset):
         assert len(self.src_text) == len(self.tgt_text), "Not paired dataset, something is wrong"
 
     def get_txt(self, mode='train'):
-        """ Return the name of the txt """
+        """ Return the txt """
         base_text_name = '{}.' + self.src_lang[1:] + '-' \
                          + self.tgt_lang[1:]
         base_text_name_src = base_text_name + self.src_lang
