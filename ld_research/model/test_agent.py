@@ -72,24 +72,3 @@ def test_decoder_greedy():
         assert (endings == VOCAB_SIZE - 1).sum().item() == BATCH_SIZE
     elif samples.size(1) > 20:
         assert False
-
-def test_agent():
-    """ Test and model """
-    words_with_freq = {str(i): i for i in range(500)}
-    vocab = Vocab(words_with_freq=words_with_freq)
-    opt = argparse.Namespace()
-    opt.emb_size = EMB_SIZE
-    opt.hidden_size = HIDDEN_SIZE
-    opt.label_smoothing = 0.1
-    agent = Agent(src_vocab=vocab, tgt_vocab=vocab,
-                  opt=opt)
-
-    # prepare fake batch
-    src = _prepare_batch(SEQ_LEN)
-    tgt = _prepare_batch(TGT_SEQ_LEN)
-    src_lengths = torch.randint(SEQ_LEN, size=(BATCH_SIZE,),
-                                dtype=torch.int64)
-    tgt_lengths = torch.randint(TGT_SEQ_LEN, size=(BATCH_SIZE,),
-                                dtype=torch.int64)
-    agent.compute_loss(src=src, tgt=tgt, tgt_lengths=tgt_lengths,
-                       src_lengths=src_lengths)
