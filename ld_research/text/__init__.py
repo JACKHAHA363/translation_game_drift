@@ -1,3 +1,4 @@
 """ package on data input
 """
-from .datasets import Vocab, IWSLTDataloader, IWSLTDataset
+from text.utils import Vocab
+from text.iwslt import IWSLTDataset, IWSLTDataloader

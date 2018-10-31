@@ -4,7 +4,7 @@ import torch
 from torch.nn import functional as F
 
 from ld_research.model.grus import GRUDecoder, GRUEncoder
-from ld_research.text import Vocab
+from text import Vocab
 from ld_research.model.utils import sequence_mask
 from ld_research.settings import BOS_WORD, EOS_WORD
 

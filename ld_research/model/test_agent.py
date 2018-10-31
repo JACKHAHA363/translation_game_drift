@@ -4,7 +4,7 @@ import torch
 import argparse
 from ld_research.model.grus import GRUDecoder, GRUEncoder
 from ld_research.model import Agent
-from ld_research.text import Vocab
+from text import Vocab
 
 VOCAB_SIZE = 500
 EMB_SIZE = 64
