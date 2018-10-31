@@ -9,7 +9,7 @@ import math
 from tensorboardX import SummaryWriter
 import glob
 from torch.nn import functional as F
-import logging
+from nltk.translate.bleu_score import corpus_bleu
 
 from ld_research.settings import FR, EN, DE, LOGGER, add_file_handler
 from ld_research.text import IWSLTDataloader, IWSLTDataset
@@ -92,6 +92,8 @@ class Trainer:
                     with torch.no_grad():
                         self.validate(step=step,
                                       train_start=train_start)
+                        self.compute_bleu(step=step,
+                                          train_start=train_start)
                     self.agent.train()
 
                 # Logging and saving
@@ -135,6 +137,32 @@ class Trainer:
                                     train_start=train_start,
                                     writer=self.writer)
 
+    def compute_bleu(self, step, train_start):
+        """ Greedy decoding """
+        LOGGER.info('Compute bleu score...')
+        self.agent.eval()
+        actual = []
+        references = []
+        for batch in self.valid_loader:
+            # Adding targets
+            references += [[sent] for sent in self.tgt_vocab.to_sentences(ids=batch.tgt.tolist())]
+
+            # Add predictions
+            batch.to(device=self.device)
+            sample_ids = self.agent.batch_translate(src=batch.src,
+                                                    src_lengths=batch.src_lengths,
+                                                    max_len=200)
+            actual += self.tgt_vocab.to_sentences(ids=sample_ids.tolist())
+
+        # Modify reference to have an extra list wrapper
+        bleu_2 = corpus_bleu(references, actual, weights=(0.5, 0.5, 0, 0))
+        bleu_4 = corpus_bleu(references, actual, weights=(0.25, 0.25, 0.25, 0.25))
+        LOGGER.info('Validation bleu_2: {}'.format(bleu_2))
+        LOGGER.info('Validation bleu_4: {}'.format(bleu_4))
+        self.writer.add_scalar('valid/bleu2', bleu_2, step, walltime=train_start-time.time())
+        self.writer.add_scalar('valid/bleu4', bleu_4, step, walltime=train_start-time.time())
+
+
     def _build_optimizer(self, ckpt=None):
         """ Get optimizer """
         saved_state_dict = None
@@ -166,6 +194,8 @@ class Trainer:
         """ Build data and model """
         self.device = torch.device(self.opt.device)
         src_lang, tgt_lang = self.opt.src_lang, self.opt.tgt_lang
+
+        # train valid and test
         if self.opt.debug:
             LOGGER.info('Debug mode, overfit on validation...')
             train_set = IWSLTDataset(src_lang, tgt_lang, 'valid')

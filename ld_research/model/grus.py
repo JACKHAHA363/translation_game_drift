@@ -1,7 +1,6 @@
 """ Contains main method for GRU
 """
 import torch
-from enum import Enum
 from ld_research.model.utils import GlobalAttention
 
 class GRUEncoder(torch.nn.Module):
@@ -89,13 +88,13 @@ class GRUDecoder(torch.nn.Module):
         logits = logits.view(bsz, seq_len, self.embeddings.num_embeddings)
         return logits, alignments
 
-    def greedy_decoding(self, bos_id, eos_id, memory, states, max_steps=60, memory_lengths=None):
+    def greedy_decoding(self, bos_id, eos_id, memory, states, max_steps=None, memory_lengths=None):
         """ Perform greedy decoding
             :param bos_id: The initial id to start sample
             :param eos_id: The id for ending
             :param memory: [bsz, src_seq_len, memory_size]
             :param states: encoder states. [1, bsz, hidden_size]
-            :param max_steps: maximum decoding length. excluding BOS_WORD
+            :param max_steps: maximum decoding length. excluding BOS_WORD. None if no maximum
             :param memory_lengths: [bsz]
             :return sample_ids: [bsz, sample_len]
         """
@@ -105,9 +104,9 @@ class GRUDecoder(torch.nn.Module):
                                   device=device)
         init_inputs.fill_(bos_id)
 
-        def finished(inputs, step):
+        def finished(inputs, time_step):
             """ Given a batch of current ids and time step, determine if it's finished """
-            if step == max_steps:
+            if max_steps and time_step == max_steps:
                 return True
             all_ends = torch.sum(inputs == eos_id).item()
             return all_ends == bsz

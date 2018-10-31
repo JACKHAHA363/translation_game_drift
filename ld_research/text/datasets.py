@@ -65,6 +65,32 @@ class Vocab:
         else:
             raise ValueError('Unkown type {}'.format(type(data)))
 
+    def denumerize(self, data):
+        """ The opposite of numerize """
+        if type(data) is int:
+            return self.get_word(data)
+        elif type(data) is list:
+            result = []
+            for element in data:
+                result.append(self.denumerize(element))
+            return result
+        else:
+            raise ValueError('Unkown type {}'.format(type(data)))
+
+    def to_sentences(self, ids, excludes=None):
+        """ Get a list of list of words and exclude some of them
+            :param ids: list of list of word index (int).
+            :param excludes: List of words to exclude. If None default to BOS, EOS, PAD
+            :return: sentences. A list of list of str.
+        """
+        excludes = excludes if excludes else [BOS_WORD, EOS_WORD, PAD_WORD]
+        sentences = []
+        for curr_ids in ids:
+            curr_words = self.denumerize(curr_ids)
+            curr_words = [word for word in curr_words if word not in excludes]
+            sentences += [curr_words]
+        return sentences
+
 class IWSLTDataset(Dataset):
     """ An object for dataset """
     prefix = {'train': 'train',

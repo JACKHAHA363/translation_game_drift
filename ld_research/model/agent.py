@@ -2,11 +2,11 @@
 """
 import torch
 from torch.nn import functional as F
-import os
 
 from ld_research.model.grus import GRUDecoder, GRUEncoder
 from ld_research.text import Vocab
 from ld_research.model.utils import sequence_mask
+from ld_research.settings import BOS_WORD, EOS_WORD
 
 class Agent(torch.nn.Module):
     """ The model. A seq to seq model """
@@ -66,3 +66,49 @@ class Agent(torch.nn.Module):
         """ Return the device """
         first_param = next(self.parameters())
         return first_param.device
+
+    def batch_translate(self, src, src_lengths, max_len=None):
+        """ Batch of sentences. Already padded and turn into tensor """
+        bos_id = self.tgt_vocab.get_index(BOS_WORD)
+        eos_id = self.tgt_vocab.get_index(EOS_WORD)
+        states, memory = self.encoder.encode(src)
+        sample_ids = self.decoder.greedy_decoding(bos_id=bos_id,
+                                                  eos_id=eos_id,
+                                                  memory=memory,
+                                                  states=states,
+                                                  max_steps=max_len)
+        return sample_ids
+
+    def translate(self, src_sentence, max_len=None):
+        """ translate a single sentence.
+            :param src_sentence: A list of tokens.
+            :param max_len: Maximum sentence length. If None, no limit.
+            :return tgt_sentence. A list of tokens without EOS or BOS
+        """
+        bos_id = self.tgt_vocab.get_index(BOS_WORD)
+        eos_id = self.tgt_vocab.get_index(EOS_WORD)
+
+        # Append EOS if needed
+        src = src_sentence[:]
+        if src[-1] != EOS_WORD:
+            src.append(EOS_WORD)
+
+        # Numerize
+        src = torch.tensor([self.src_vocab.numerize(src)],
+                           dtype=torch.int64).to(device=self.device)
+        states, memory = self.encoder.encode(src)
+        sample_ids = self.decoder.greedy_decoding(bos_id=bos_id,
+                                                  eos_id=eos_id,
+                                                  memory=memory,
+                                                  states=states,
+                                                  max_steps=max_len)
+
+        # Get the tokens
+        tgt_sentence = sample_ids.squeeze(0).tolist()
+        tgt_sentence = self.tgt_vocab.denumerize(tgt_sentence)
+
+        # Get rid of EOS and BOS
+        tgt_sentence = tgt_sentence[1:]
+        if tgt_sentence[-1] == EOS_WORD:
+            tgt_sentence = tgt_sentence[:-1]
+        return tgt_sentence
