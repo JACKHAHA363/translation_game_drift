@@ -63,3 +63,10 @@ def config_logger():
     console_handler.setFormatter(log_format)
     LOGGER.handlers = [console_handler]
 config_logger()
+
+def add_file_handler(filename):
+    """ Add file handler to logger """
+    log_format = logging.Formatter("[%(asctime)s %(levelname)s] %(message)s")
+    file_handler = logging.FileHandler(filename=filename)
+    file_handler.setFormatter(log_format)
+    LOGGER.addHandler(file_handler)

@@ -9,8 +9,9 @@ import math
 from tensorboardX import SummaryWriter
 import glob
 from torch.nn import functional as F
+import logging
 
-from ld_research.settings import FR, EN, DE, LOGGER
+from ld_research.settings import FR, EN, DE, LOGGER, add_file_handler
 from ld_research.text import IWSLTDataloader, IWSLTDataset
 from ld_research.model import Agent
 from ld_research.training.optimizers import Optimizer
@@ -51,6 +52,9 @@ class Trainer:
 
         # Save Opt
         self.save_opt()
+
+        # Add log file.
+        add_file_handler(os.path.join(self.opt.save_dir, 'training.log'))
 
     def start_training(self):
         """ Start training """
