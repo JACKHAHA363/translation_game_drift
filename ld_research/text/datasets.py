@@ -71,12 +71,11 @@ class IWSLTDataset(Dataset):
               'valid': 'IWSLT16.TED.tst2013',
               'test': 'IWSLT16.TED.tst2014'}
 
-    def __init__(self, src_lang, tgt_lang, mode='train', device=None):
+    def __init__(self, src_lang, tgt_lang, mode='train'):
         """ constructor
             :param src_lang: The src language
             :param tgt_lang: The target language
             :param mode: The train, valid, test mode
-            :param device: A torch.device or str
         """
         assert mode in ['train', 'test', 'valid'], "Invalid mode {}".format(mode)
         self.src_lang = src_lang
@@ -87,10 +86,7 @@ class IWSLTDataset(Dataset):
         self.bpe_corpus_dir = os.path.join(ROOT_BPE_DIR, 'iwslt',
                                            '{}-{}'.format(src_lang[1:], tgt_lang[1:]))
         self.src_text, self.tgt_text = self.get_txt(mode)
-        assert len(self.src_text) == len(self.tgt_text), "Not paired datset, something is wrong"
-        if type(device) == str:
-            device = torch.device(device)
-        self.device = device
+        assert len(self.src_text) == len(self.tgt_text), "Not paired dataset, something is wrong"
 
     def get_txt(self, mode='train'):
         """ Return the name of the txt """
@@ -118,9 +114,21 @@ class IWSLTDataset(Dataset):
         tgt_sentence = self.tgt_text[index].rstrip('\n').split()
         return IWSLTExample(src=src_sentence, tgt=tgt_sentence, src_lengths=0, tgt_lengths=0)
 
-class IWSLTExample(namedtuple('Example', ('src', 'src_lengths', 'tgt', 'tgt_lengths'))):
+class IWSLTExample:
     """ A data structure """
-    pass
+    def __init__(self, src, tgt, src_lengths, tgt_lengths):
+        """ A constructor """
+        self.src = src
+        self.tgt = tgt
+        self.src_lengths = src_lengths
+        self.tgt_lengths = tgt_lengths
+
+    def to(self, **kwargs):
+        """ Change device """
+        self.src = self.src.to(**kwargs)
+        self.tgt = self.tgt.to(**kwargs)
+        self.src_lengths = self.src_lengths.to(**kwargs)
+        self.tgt_lengths = self.tgt_lengths.to(**kwargs)
 
 class IWSLTDataloader(DataLoader):
     """ My dataloader """
@@ -137,7 +145,6 @@ class IWSLTDataloader(DataLoader):
                                               worker_init_fn=worker_init_fn,
                                               collate_fn=self.collate_fn,
                                               drop_last=drop_last)
-        self.device = self.dataset.device
         self.src_vocab = self.dataset.src_vocab
         self.tgt_vocab = self.dataset.tgt_vocab
 
@@ -195,5 +202,4 @@ class IWSLTDataloader(DataLoader):
     def _to_tensor(self, input_list):
         """ Turn a list to tensor """
         return torch.tensor(input_list,
-                            device=self.device,
                             dtype=torch.int64)

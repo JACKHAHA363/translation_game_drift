@@ -98,7 +98,8 @@ if __name__ == '__main__':
                         help='logging frequency')
     parser.add_argument('-checkpoint_steps', default=100, type=int,
                         help='checkpoint frequency')
-
+    parser.add_argument('-debug', action='store_true')
     opt = parser.parse_args()
+
     trainer = Trainer(opt)
     trainer.start_training()

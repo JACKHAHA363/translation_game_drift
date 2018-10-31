@@ -54,12 +54,13 @@ class Trainer:
 
     def start_training(self):
         """ Start training """
-        LOGGER.info('Start training...')
         step = self.optimizer.curr_step + 1
+        LOGGER.info('Start training with step {}...'.format(step))
         train_stats = StatisticsReport()
         train_start = time.time()
         while step <= self.opt.train_steps:
             for i, batch in enumerate(self.train_loader):
+                batch.to(device=self.device)
                 logprobs, targets, masks = self.agent(src=batch.src,
                                                       tgt=batch.tgt,
                                                       src_lengths=batch.src_lengths,
@@ -84,8 +85,10 @@ class Trainer:
                 self.optimizer.step()
 
                 if (step + 1) % self.opt.valid_steps == 0:
-                    self.validate(step=step,
-                                  train_start=train_start)
+                    with torch.no_grad():
+                        self.validate(step=step,
+                                      train_start=train_start)
+                    self.agent.train()
 
                 # Logging and saving
                 train_stats = self._report_training(step, train_stats, train_start)
@@ -100,6 +103,7 @@ class Trainer:
         valid_stats = StatisticsReport()
 
         for batch in self.valid_loader:
+            batch.to(device=self.device)
             logprobs, targets, masks = self.agent(src=batch.src,
                                                   tgt=batch.tgt,
                                                   src_lengths=batch.src_lengths,
@@ -124,7 +128,8 @@ class Trainer:
         valid_stats.log_tensorboard(prefix='valid',
                                     learning_rate=self.optimizer.learning_rate,
                                     step=step,
-                                    train_start=train_start)
+                                    train_start=train_start,
+                                    writer=self.writer)
 
     def _build_optimizer(self, ckpt=None):
         """ Get optimizer """
@@ -155,13 +160,19 @@ class Trainer:
 
     def _build_dataloader_and_model(self, ckpt=None):
         """ Build data and model """
+        self.device = torch.device(self.opt.device)
         src_lang, tgt_lang = self.opt.src_lang, self.opt.tgt_lang
-        train_set = IWSLTDataset(src_lang, tgt_lang, 'train', device=self.opt.device)
-        valid_set = IWSLTDataset(src_lang, tgt_lang, 'valid', device=self.opt.device)
+        if self.opt.debug:
+            LOGGER.info('Debug mode, overfit on validation...')
+            train_set = IWSLTDataset(src_lang, tgt_lang, 'valid')
+            valid_set = IWSLTDataset(src_lang, tgt_lang, 'valid')
+        else:
+            train_set = IWSLTDataset(src_lang, tgt_lang, 'train')
+            valid_set = IWSLTDataset(src_lang, tgt_lang, 'valid')
         self.train_loader = IWSLTDataloader(train_set, batch_size=self.opt.batch_size,
-                                            shuffle=True, num_workers=4)
+                                            shuffle=True, num_workers=1)
         self.valid_loader = IWSLTDataloader(valid_set, batch_size=self.opt.batch_size,
-                                            shuffle=False, num_workers=4)
+                                            shuffle=False, num_workers=1)
         self.src_vocab = self.train_loader.src_vocab
         self.tgt_vocab = self.train_loader.tgt_vocab
         self.agent = Agent(src_vocab=self.src_vocab,
@@ -169,7 +180,7 @@ class Trainer:
                            opt=self.opt)
         if ckpt:
             self.agent.load_state_dict(ckpt['agent'])
-        self.agent.to(device=torch.device(self.opt.device))
+        self.agent.to(device=self.device)
 
     def load_opt(self, save_dir):
         """ Load opt from save dir """
