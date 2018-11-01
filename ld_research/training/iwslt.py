@@ -144,15 +144,16 @@ class Trainer:
         actual = []
         references = []
         for batch in self.valid_loader:
-            # Adding targets
-            references += [[sent] for sent in self.tgt_vocab.to_sentences(ids=batch.tgt.tolist())]
-
-            # Add predictions
             batch.to(device=self.device)
-            sample_ids = self.agent.batch_translate(src=batch.src,
-                                                    src_lengths=batch.src_lengths,
-                                                    max_len=200)
-            actual += self.tgt_vocab.to_sentences(ids=sample_ids.tolist())
+            for src, tgt, tgt_length in zip(batch.src, batch.tgt, batch.tgt_lengths):
+                references.append(self.tgt_vocab.to_sentences(tgt.unsqueeze(0).tolist()))
+                pred, _ = self.agent.translate(src, max_len=2 * tgt_length.item())
+
+                # Save results
+                pred_sentence = self.tgt_vocab.to_sentences(pred.tolist())[0]
+                target_sentence = self.tgt_vocab.to_sentences(tgt.tolist())[0]
+                references.append([target_sentence])
+                actual.append(pred_sentence)
 
         # Modify reference to have an extra list wrapper
         bleu_1 = corpus_bleu(references, actual, weights=(1.0, 0, 0, 0)) * 100

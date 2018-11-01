@@ -253,11 +253,13 @@ class Vocab:
 
     def to_sentences(self, ids, excludes=None):
         """ Get a list of list of words and exclude some of them
-            :param ids: list of list of word index (int).
+            :param ids: list of list of word index (int) or list of ids
             :param excludes: List of words to exclude. If None default to BOS, EOS, PAD
             :return: sentences. A list of list of str.
         """
         excludes = excludes if excludes else [BOS_WORD, EOS_WORD, PAD_WORD]
+        if type(ids[0]) is int:
+            ids = [ids]
         sentences = []
         for curr_ids in ids:
             curr_words = self.denumerize(curr_ids)

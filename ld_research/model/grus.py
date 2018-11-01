@@ -137,7 +137,7 @@ class GRUDecoder(torch.nn.Module):
             # Update curr_inputs and step
             step += 1
             lengths += 1 - finished
-            finished += (1 - finished) * (sampled_ids == eos_id).long()
+            finished += (1 - finished) * (sampled_ids.squeeze(1) == eos_id).long()
             curr_inputs = sampled_ids
             curr_hidden = next_hidden
 
