@@ -7,8 +7,8 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from settings import ROOT_BPE_DIR, PAD_WORD, EOS_WORD, BOS_WORD
-from text import Vocab
+from ld_research.settings import ROOT_BPE_DIR, PAD_WORD, EOS_WORD, BOS_WORD
+from ld_research.text import Vocab
 
 
 class IWSLTDataset(Dataset):

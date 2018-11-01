@@ -3,15 +3,13 @@
 from os.path import join, basename
 import os
 from itertools import product
-from ld_research.settings import ROOT_CORPUS_DIR, FR, EN, DE, LOGGER, ROOT_TOK_DIR, ROOT_BPE_DIR, LEARN_JOINT_BPE, APPLY_BPE, \
-    PYTHONBIN, MIN_FREQ
 from torchtext.datasets import IWSLT
 from torchtext.data import get_tokenizer
 from tqdm import tqdm
 from subprocess import call
 
-from settings import BOS_WORD, EOS_WORD, UNK_WORD, PAD_WORD, LOGGER
-
+from ld_research.settings import ROOT_CORPUS_DIR, FR, EN, DE, LOGGER, ROOT_TOK_DIR, ROOT_BPE_DIR, \
+    LEARN_JOINT_BPE, APPLY_BPE, PYTHONBIN, MIN_FREQ, BOS_WORD, EOS_WORD, UNK_WORD, PAD_WORD
 
 def _IWSLT_download_helper(src_lang, tgt_lang):
     """ Download result given source and target language """

@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from nltk.translate.bleu_score import corpus_bleu
 
 from ld_research.settings import FR, EN, DE, LOGGER, add_file_handler
-from text import IWSLTDataset, IWSLTDataloader
+from ld_research.text import IWSLTDataset, IWSLTDataloader
 from ld_research.model import Agent
 from ld_research.training.optimizers import Optimizer
 
