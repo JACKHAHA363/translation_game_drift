@@ -3,6 +3,7 @@
 from torch.utils.data import Dataset, DataLoader
 from os.path import join
 import os
+import torch
 
 from ld_research.text.utils import Vocab, pad_to_same_length
 from ld_research.settings import FR, EN, DE, ROOT_BPE_DIR, PAD_WORD, EOS_WORD, BOS_WORD
@@ -18,24 +19,58 @@ class Multi30KExample:
                  en_lengths=0,
                  de_lengths=0):
         """ A constructor """
-        self.fr = fr
-        self.fr_lengths = fr_lengths
-        self.en = en
-        self.en_lengths = en_lengths
-        self.de = de
-        self.de_lengths = de_lengths
+        self.id_dicts = {FR: fr,
+                         EN: en,
+                         DE: de}
+        self.length_dicts = {FR: fr_lengths,
+                             EN: en_lengths,
+                             DE: de_lengths}
 
     def to(self, **kwargs):
         """ Change device """
-        self.fr = self.fr.to(**kwargs)
-        self.en = self.de.to(**kwargs)
-        self.de = self.de.to(**kwargs)
-        self.fr_lengths = self.fr_lengths.to(**kwargs)
-        self.en_lengths = self.en_lengths.to(**kwargs)
-        self.de_lengths = self.de_lengths.to(**kwargs)
+        for lang in ALL_LANG:
+            self.id_dicts[lang].to(**kwargs)
+            self.length_dicts[lang].to(**kwargs)
+
+    @classmethod
+    def from_dicts(cls, id_dicts, length_dicts):
+        """ Get an instance from dicts """
+        return cls(fr=id_dicts[FR],
+                   en=id_dicts[EN],
+                   de=id_dicts[DE],
+                   fr_lengths=length_dicts[FR],
+                   en_lengths=length_dicts[EN],
+                   de_lengths=length_dicts[DE])
+
+    """
+    Some getters
+    """
+    @property
+    def fr(self):
+        return self.id_dicts[FR]
+
+    @property
+    def en(self):
+        return self.id_dicts[EN]    \
+
+    @property
+    def de(self):
+        return self.id_dicts[DE]
+
+    @property
+    def fr_lengths(self):
+        return self.length_dicts[FR]
+
+    @property
+    def en_lengths(self):
+        return self.length_dicts[EN]    \
+
+    @property
+    def de_lengths(self):
+        return self.length_dicts[DE]
 
 
-class Multi30K(Dataset):
+class Multi30KDataset(Dataset):
     """ A dataset object for Multi30k """
     prefix = {'train': 'train',
               'valid': 'val',
@@ -86,17 +121,16 @@ class Multi30KLoader(DataLoader):
                                              collate_fn=self.collate_fn,
                                              drop_last=drop_last)
         self.vocabs = self.dataset.vocabs
+        self.padding_fns = {FR: lambda sents: pad_to_same_length(sents, PAD_WORD, None, None),
+                            EN: lambda sents: pad_to_same_length(sents, PAD_WORD, None, None),
+                            DE: lambda sents: pad_to_same_length(sents, PAD_WORD, BOS_WORD, EOS_WORD)}
 
     def collate_fn(self, batch):
         """ Given a list merge into one data """
-        fr, fr_lengths = pad_to_same_length(sentences=[example.fr for example in batch],
-                                            pad_token=PAD_WORD, init_token=None,
-                                            end_token=EOS_WORD)
-        en, en_lengths = pad_to_same_length(sentences=[example.en for example in batch],
-                                            pad_token=PAD_WORD, init_token=None,
-                                            end_token=None)
-        de, de_lengths = pad_to_same_length(sentences=[example.de for example in batch],
-                                            pad_token=PAD_WORD, init_token=BOS_WORD,
-                                            end_token=EOS_WORD)
-        return Multi30KExample(fr=fr, en=en, de=de, fr_lengths=fr_lengths,
-                               en_lengths=en_lengths, de_lengths=de_lengths)
+        id_dicts = dict()
+        length_dicts = dict()
+        for lang in ALL_LANG:
+            ids, lengths = self.padding_fns[lang]([example.id_dicts[lang] for example in batch])
+            id_dicts[lang] = torch.tensor(self.vocabs[lang].numerize(ids)).long()
+            length_dicts[lang] = torch.tensor(lengths)
+        return Multi30KExample.from_dicts(id_dicts=id_dicts, length_dicts=length_dicts)

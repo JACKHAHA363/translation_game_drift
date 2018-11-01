@@ -105,7 +105,7 @@ def pad_to_same_length(sentences, pad_token=PAD_WORD,
         :param pad_token: The padding token
         :param init_token: The initial token. If None don't pad
         :param end_token: The ending token. If None don't pad
-        :return (results, lenghs). The padded sentences along with the lengths.
+        :return (results, lenghs). The padded sentences along with the lengths. Tensor
     """
     max_len = max([len(sentence) for sentence in sentences])
     results = []
