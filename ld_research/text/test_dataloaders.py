@@ -3,7 +3,7 @@
     Description:
 """
 from ld_research.settings import EN, FR
-from text import IWSLTDataset, IWSLTDataloader
+from ld_research.text import IWSLTDataset, IWSLTDataloader
 
 def test_iwslt():
     """ Test data loader """

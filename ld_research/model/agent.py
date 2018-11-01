@@ -3,7 +3,7 @@
 import torch
 from torch.nn import functional as F
 
-from ld_research.model.grus import GRUDecoder, GRUEncoder
+from ld_research.model.grus import GRUDecoder, GRUEncoder, GRUValueDecoder
 from ld_research.text import Vocab
 from ld_research.model.utils import sequence_mask
 from ld_research.settings import BOS_WORD, EOS_WORD
@@ -83,13 +83,52 @@ class Agent(torch.nn.Module):
 
 class ValueAgent(torch.nn.Module):
     """ A value Wrapper Model with a GRU """
-    def __init__(self, src_vocab, opt):
+    def __init__(self, src_vocab, tgt_vocab, opt):
         """ constructor """
         super(ValueAgent, self).__init__()
         self.add_module('src_emb', torch.nn.Embedding(len(src_vocab),
                                                       opt.emb_size))
+        self.add_module('tgt_emb', torch.nn.Embedding(len(tgt_vocab),
+                                                      opt.emb_size))
         self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.hidden_size))
-        self.add_module('value_decoder', GRUDecoder(self.tgt_emb, hidden_size=opt.hidden_size))
+        self.add_module('value_decoder', GRUValueDecoder(self.tgt_emb, hidden_size=opt.hidden_size))
+
+    @property
+    def device(self):
+        """ Return the device """
+        first_param = next(self.parameters())
+        return first_param.device
+
+    def forward(self, src, tgt, src_lengths=None, tgt_lengths=None, with_align=False):
+        """ Get values
+            :param src [bsz, src_len]
+            :param tgt [bsz, tgt_len]
+            :param src_lengths [bsz]
+            :param tgt_lengths [bsz]
+            :param with_align: Whether or not output alignments
+            :return: values, masks, alignment (depends)
+                values: The value result. [bsz, tgt_len-1, 1]
+                masks: The sequence mask. [bsz, tgt_len-1]. None if tgt_lengths is None
+                alignments: The attention alignments [bsz, tgt_len-1, src_len]
+        """
+        states, memory = self.encoder.encode(src)
+
+        # Set up input and output for decoder
+        tgt_in = tgt[:, :-1]
+        values, alignments = self.value_decoder.compute_values(targets=tgt_in,
+                                                               memory=memory,
+                                                               states=states,
+                                                               memory_lengths=src_lengths)
+        # Get outputs
+        masks = None if tgt_lengths is None else \
+            sequence_mask(lengths=tgt_lengths - 1,
+                          max_len=values.size(1))
+        masks = masks.float().to(device=self.device)
+        outputs = [values, masks]
+        if with_align:
+            outputs += [alignments]
+        return tuple(outputs)
+
 
 class CommunicationEnv:
     " The object that have two agents for finetune "

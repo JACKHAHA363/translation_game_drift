@@ -166,8 +166,8 @@ class GRUValueDecoder(torch.nn.Module):
                                 dropout=dropout,
                                 batch_first=True)
         self.attn = GlobalAttention(dim=hidden_size)
-        self.linear_out = torch.nn.Linear(1,
-                                          embeddings.num_embeddings,
+        self.linear_out = torch.nn.Linear(hidden_size,
+                                          1,
                                           bias=True)
 
     def compute_values(self, targets, memory, states, memory_lengths=None):
@@ -177,7 +177,7 @@ class GRUValueDecoder(torch.nn.Module):
             :param states: encoder states. [1, bsz, hidden_size]
             :param memory_lengths: [bsz]
             :return: (values, alignments)
-                values: [bsz, seq_len, vocab_size]
+                values: [bsz, seq_len]
                 alignments: [bsz, seq_len, src_seq_len]
         """
         # decoder_outputs
@@ -195,5 +195,5 @@ class GRUValueDecoder(torch.nn.Module):
 
         # Compute values
         values = self.linear_out(context.view(-1, self.hidden_size))
-        values = values.view(bsz, seq_len, self.embeddings.num_embeddings)
+        values = values.view(bsz, seq_len, 1).squeeze(-1)
         return values, alignments
