@@ -83,10 +83,13 @@ class Agent(torch.nn.Module):
 
 class ValueAgent(torch.nn.Module):
     """ A value Wrapper Model with a GRU """
-    def __init__(self, src_vocab):
+    def __init__(self, src_vocab, opt):
         """ constructor """
         super(ValueAgent, self).__init__()
-
+        self.add_module('src_emb', torch.nn.Embedding(len(src_vocab),
+                                                      opt.emb_size))
+        self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.hidden_size))
+        self.add_module('value_decoder', GRUDecoder(self.tgt_emb, hidden_size=opt.hidden_size))
 
 class CommunicationEnv:
     " The object that have two agents for finetune "

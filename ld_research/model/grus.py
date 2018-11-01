@@ -3,6 +3,7 @@
 import torch
 from ld_research.model.utils import GlobalAttention
 
+
 class GRUEncoder(torch.nn.Module):
     """ The GRU Encoder """
     def __init__(self, embeddings, num_layers=1, hidden_size=256,
@@ -19,7 +20,7 @@ class GRUEncoder(torch.nn.Module):
         self.input_size = embeddings.embedding_dim
         self.num_layers = num_layers
         self.hidden_size = hidden_size
-        self.dropout = 0.3
+        self.dropout = torch.nn.Dropout(dropout)
         self.gru = torch.nn.GRU(input_size=self.input_size,
                                 hidden_size=hidden_size,
                                 num_layers=num_layers,
@@ -33,7 +34,7 @@ class GRUEncoder(torch.nn.Module):
                 states: Final encoder state. [1, bsz, num_hidden]
                 memory: The memory bank for attention. `[bsz, seq_len, num_hidden]`
         """
-        emb = self.embeddings(src)
+        emb = self.dropout(self.embeddings(src))
         memory, states = self.gru(emb)
         return states, memory
 
@@ -74,7 +75,7 @@ class GRUDecoder(torch.nn.Module):
         # [bsz, seq_len, hidden_size]
         bsz = targets.size(0)
         seq_len = targets.size(1)
-        embs = self.embeddings(targets)
+        embs = self.dropout(self.embeddings(targets))
         decoder_outputs, _ = self.gru(embs, states)
 
         # Compute attention
@@ -118,7 +119,7 @@ class GRUDecoder(torch.nn.Module):
         curr_hidden = states
         while torch.sum(finished) < bsz and step < max_steps:
             # embedding [bsz, 1, inp_size]
-            curr_emb = self.embeddings(curr_inputs)
+            curr_emb = self.dropout(self.embeddings(curr_inputs))
 
             # [bsz, 1, hidden_size]
             decoder_outputs, next_hidden = self.gru(curr_emb,
@@ -144,3 +145,55 @@ class GRUDecoder(torch.nn.Module):
             # Appending resutls
             results.append(sampled_ids)
         return torch.cat(results, dim=1), lengths
+
+
+class GRUValueDecoder(torch.nn.Module):
+    """ The Value decoder """
+    def __init__(self, embeddings, num_layers=1, hidden_size=256,
+                 dropout=0.3):
+        """ Constructor """
+        super(GRUValueDecoder, self).__init__()
+        assert isinstance(embeddings, torch.nn.Embedding)
+        self.embeddings = embeddings
+        self.input_size = embeddings.embedding_dim
+        self.output_size = embeddings.embedding_dim
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.dropout = torch.nn.Dropout(dropout)
+        self.gru = torch.nn.GRU(input_size=self.input_size,
+                                hidden_size=hidden_size,
+                                num_layers=num_layers,
+                                dropout=dropout,
+                                batch_first=True)
+        self.attn = GlobalAttention(dim=hidden_size)
+        self.linear_out = torch.nn.Linear(1,
+                                          embeddings.num_embeddings,
+                                          bias=True)
+
+    def compute_values(self, targets, memory, states, memory_lengths=None):
+        """ Do a teacher forcing
+            :param targets: [bsz, seq_len]
+            :param memory: [bsz, src_seq_len, memory_size]
+            :param states: encoder states. [1, bsz, hidden_size]
+            :param memory_lengths: [bsz]
+            :return: (values, alignments)
+                values: [bsz, seq_len, vocab_size]
+                alignments: [bsz, seq_len, src_seq_len]
+        """
+        # decoder_outputs
+        # [bsz, seq_len, hidden_size]
+        bsz = targets.size(0)
+        seq_len = targets.size(1)
+        embs = self.dropout(self.embeddings(targets))
+        decoder_outputs, _ = self.gru(embs, states)
+
+        # Compute attention
+        context, alignments = self.attn(query=decoder_outputs,
+                                        memory_bank=memory,
+                                        memory_lengths=memory_lengths)
+        context = self.dropout(context)
+
+        # Compute values
+        values = self.linear_out(context.view(-1, self.hidden_size))
+        values = values.view(bsz, seq_len, self.embeddings.num_embeddings)
+        return values, alignments
