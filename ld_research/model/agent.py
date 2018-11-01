@@ -128,8 +128,3 @@ class ValueAgent(torch.nn.Module):
         if with_align:
             outputs += [alignments]
         return tuple(outputs)
-
-
-class CommunicationEnv:
-    " The object that have two agents for finetune "
-    pass
