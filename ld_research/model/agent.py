@@ -80,19 +80,14 @@ class Agent(torch.nn.Module):
                                                                   max_steps=max_len)
         return sample_ids, sample_lengths
 
-    def translate(self, src, max_len=None):
-        """ translate a single sentence.
-            :param src: A tensor. [len]
-            :param max_len: Maximum sentence length. If None, no limit.
-            :return (tgt, length). A tensor of shape ([len], [])
-        """
-        bos_id = self.tgt_vocab.get_index(BOS_WORD)
-        eos_id = self.tgt_vocab.get_index(EOS_WORD)
 
-        states, memory = self.encoder.encode(src.unsqueeze(0))
-        sample_ids, sample_lengths = self.decoder.greedy_decoding(bos_id=bos_id,
-                                                                  eos_id=eos_id,
-                                                                  memory=memory,
-                                                                  states=states,
-                                                                  max_steps=max_len)
-        return sample_ids.squeeze(0), sample_lengths.squeeze(0)
+class ValueAgent(torch.nn.Module):
+    """ A value Wrapper Model with a GRU """
+    def __init__(self, src_vocab):
+        """ constructor """
+        super(ValueAgent, self).__init__()
+
+
+class CommunicationEnv:
+    " The object that have two agents for finetune "
+    pass

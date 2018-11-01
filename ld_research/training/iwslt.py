@@ -145,14 +145,14 @@ class Trainer:
         references = []
         for batch in self.valid_loader:
             batch.to(device=self.device)
-            for src, tgt, tgt_length in zip(batch.src, batch.tgt, batch.tgt_lengths):
-                references.append(self.tgt_vocab.to_sentences(tgt.unsqueeze(0).tolist()))
-                pred, _ = self.agent.translate(src, max_len=2 * tgt_length.item())
-
-                # Save results
-                pred_sentence = self.tgt_vocab.to_sentences(pred.tolist())[0]
-                target_sentence = self.tgt_vocab.to_sentences(tgt.tolist())[0]
-                references.append([target_sentence])
+            preds, pred_lengths = self.agent.batch_translate(batch.src,
+                                                             batch.src_lengths,
+                                                             max_len=100)
+            for tgt, pred, pred_length in zip(batch.tgt, preds, pred_lengths):
+                pred = pred[:pred_length]
+                tgt_sentence = self.tgt_vocab.to_sentences(tgt.tolist())[0]
+                pred_sentence =self.tgt_vocab.to_sentences(pred.tolist())[0]
+                references.append([tgt_sentence])
                 actual.append(pred_sentence)
 
         # Modify reference to have an extra list wrapper
@@ -168,7 +168,6 @@ class Trainer:
         self.writer.add_scalar('valid/bleu2', bleu_2, step, walltime=train_start-time.time())
         self.writer.add_scalar('valid/bleu3', bleu_3, step, walltime=train_start-time.time())
         self.writer.add_scalar('valid/bleu4', bleu_4, step, walltime=train_start-time.time())
-
 
     def _build_optimizer(self, ckpt=None):
         """ Get optimizer """
