@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 
 from ld_research.settings import ROOT_BPE_DIR, PAD_WORD, EOS_WORD, BOS_WORD
 from ld_research.text import Vocab
+from ld_research.text.utils import pad_to_same_length
 
 
 class IWSLTDataset(Dataset):
@@ -96,50 +97,14 @@ class IWSLTDataloader(DataLoader):
         self.src_vocab = self.dataset.src_vocab
         self.tgt_vocab = self.dataset.tgt_vocab
 
-    def _pad_to_same_length(self, sentences, pad_token=PAD_WORD,
-                            init_token=None, end_token=None):
-        """ Given a list of sentences. Pad each to the maximum length.
-            :param sentences: A list of list of indices
-            :param pad_token: The padding token
-            :param init_token: The initial token. If None don't pad
-            :param end_token: The ending token. If None don't pad
-            :return (results, lenghs). The padded sentences along with the lengths./
-        """
-        max_len = max([len(sentence) for sentence in sentences])
-        results = []
-        lengths = []
-        for sentence in sentences:
-            # Beginning
-            padded, length = [], 0
-            if init_token:
-                padded += [init_token]
-                length += 1
-
-            # Original sentence
-            padded += sentence
-            length += len(sentence)
-
-            # End of sentence
-            if end_token:
-                padded += [end_token]
-                length += 1
-
-            # Padding
-            padded += [pad_token] * (max_len - len(sentence))
-
-            # Add to results
-            results += [padded]
-            lengths += [length]
-        return results, lengths
-
     def collate_fn(self, batch):
         """ Merge a list of IWSLTExample into one IWSLTExample """
-        src, src_lengths = self._pad_to_same_length(sentences=[example.src for example in batch],
-                                                    pad_token=PAD_WORD, init_token=None,
-                                                    end_token=EOS_WORD)
-        tgt, tgt_lengths = self._pad_to_same_length(sentences=[example.tgt for example in batch],
-                                                    pad_token=PAD_WORD, init_token=BOS_WORD,
-                                                    end_token=EOS_WORD)
+        src, src_lengths = pad_to_same_length(sentences=[example.src for example in batch],
+                                              pad_token=PAD_WORD, init_token=None,
+                                              end_token=EOS_WORD)
+        tgt, tgt_lengths = pad_to_same_length(sentences=[example.tgt for example in batch],
+                                              pad_token=PAD_WORD, init_token=BOS_WORD,
+                                              end_token=EOS_WORD)
         src = self._to_tensor(self.src_vocab.numerize(src))
         tgt = self._to_tensor(self.tgt_vocab.numerize(tgt))
         src_lengths = self._to_tensor(src_lengths)

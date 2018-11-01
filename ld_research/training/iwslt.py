@@ -220,6 +220,9 @@ class Trainer:
                            opt=self.opt)
         if ckpt:
             self.agent.load_state_dict(ckpt['agent'])
+        else:
+            for p in self.agent.parameters():
+                p.data.uniform_(-self.opt.param_init, self.opt.param_init)
         self.agent.to(device=self.device)
 
     def load_opt(self, save_dir):

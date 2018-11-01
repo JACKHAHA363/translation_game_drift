@@ -15,6 +15,8 @@ if __name__ == '__main__':
                         help='The source language')
     parser.add_argument('-emb_size', default=256, type=int)
     parser.add_argument('-hidden_size', default=256, type=int)
+    parser.add_argument('-param_init', default=0.1, type=float,
+                        help='model initialization range')
     parser.add_argument('-device', default='cpu', type=str,
                         help='The device. None, cpu, cuda, cuda/cpu:rank')
 

@@ -11,6 +11,7 @@ from subprocess import call
 from ld_research.settings import ROOT_CORPUS_DIR, FR, EN, DE, LOGGER, ROOT_TOK_DIR, ROOT_BPE_DIR, \
     LEARN_JOINT_BPE, APPLY_BPE, PYTHONBIN, MIN_FREQ, BOS_WORD, EOS_WORD, UNK_WORD, PAD_WORD
 
+
 def _IWSLT_download_helper(src_lang, tgt_lang):
     """ Download result given source and target language """
     corpus_dir = join(ROOT_CORPUS_DIR, IWSLT.name, IWSLT.base_dirname.format(src_lang[1:], tgt_lang[1:]))
@@ -22,6 +23,7 @@ def _IWSLT_download_helper(src_lang, tgt_lang):
     IWSLT.urls = [IWSLT.base_url.format(src_lang[1:], tgt_lang[1:], IWSLT.dirname)]
     IWSLT.download(root=ROOT_CORPUS_DIR, check=corpus_dir)
     IWSLT.clean(corpus_dir)
+
 
 def _tokenize(in_file, out_file):
     """ Use moses to tokenize the file.
@@ -58,6 +60,7 @@ def _tokenize_IWSLT_helper(src_lang, tgt_lang):
         out_file = join(token_dir, prefix + '.' + suffix)
         _tokenize(in_file=in_file, out_file=out_file)
 
+
 def _download_multi30k():
     """ Get the corpus of multi30k task1 """
     corpus_dir = join(ROOT_CORPUS_DIR, 'multi30k')
@@ -73,12 +76,14 @@ def _download_multi30k():
         call(wget_cmd)
         call(['gunzip', '-k', join(corpus_dir, '{}{}.gz'.format(prefix, lang))])
 
+
 def prepare_IWSLT():
     """ Download and tokenize IWSLT """
     _IWSLT_download_helper(FR, EN)
     _IWSLT_download_helper(EN, DE)
     _tokenize_IWSLT_helper(FR, EN)
     _tokenize_IWSLT_helper(EN, DE)
+
 
 def prepare_multi30k():
     """ Download and tokenize multi30k task1 """
@@ -99,6 +104,7 @@ def prepare_multi30k():
         in_file = join(corpus_dir, file_name)
         out_file = join(tok_dir, file_name)
         _tokenize(in_file, out_file)
+
 
 def learn_bpe():
     """ Learn the BPE and get vocab """
@@ -135,6 +141,7 @@ def apply_bpe(in_file, out_file, lang):
     LOGGER.info('Applying BPE to {}'.format(basename(out_file)))
     call(cmd)
 
+
 def apply_bpe_iwslt(src_lang, tgt_lang):
     """ Apply BPE to iwslt with `src_lang` and `tgt_lang` """
     bpe_dir = join(ROOT_BPE_DIR, IWSLT.name, IWSLT.base_dirname.format(src_lang[1:], tgt_lang[1:]))
@@ -151,6 +158,7 @@ def apply_bpe_iwslt(src_lang, tgt_lang):
         bpe_out = join(bpe_dir, prefix + '.' + suffix)
         apply_bpe(in_file=tokenized_file, out_file=bpe_out, lang=suffix[-3:])
 
+
 def apply_bpe_multi30k():
     """ Apply BPE to multi30k """
     bpe_dir = join(ROOT_BPE_DIR, 'multi30k')
@@ -166,6 +174,7 @@ def apply_bpe_multi30k():
         in_file = join(tok_dir, file_name)
         out_file = join(bpe_dir, file_name)
         apply_bpe(in_file, out_file, lang=lang)
+
 
 def get_vocab_file(lang):
     """ Return the vocab file of a language """
@@ -255,3 +264,40 @@ class Vocab:
             curr_words = [word for word in curr_words if word not in excludes]
             sentences += [curr_words]
         return sentences
+
+
+def pad_to_same_length(sentences, pad_token=PAD_WORD,
+                       init_token=None, end_token=None):
+    """ Given a list of sentences. Pad each to the maximum length.
+        :param sentences: A list of list of indices
+        :param pad_token: The padding token
+        :param init_token: The initial token. If None don't pad
+        :param end_token: The ending token. If None don't pad
+        :return (results, lenghs). The padded sentences along with the lengths.
+    """
+    max_len = max([len(sentence) for sentence in sentences])
+    results = []
+    lengths = []
+    for sentence in sentences:
+        # Beginning
+        padded, length = [], 0
+        if init_token:
+            padded += [init_token]
+            length += 1
+
+        # Original sentence
+        padded += sentence
+        length += len(sentence)
+
+        # End of sentence
+        if end_token:
+            padded += [end_token]
+            length += 1
+
+        # Padding
+        padded += [pad_token] * (max_len - len(sentence))
+
+        # Add to results
+        results += [padded]
+        lengths += [length]
+    return results, lengths
