@@ -62,13 +62,8 @@ def test_decoder_greedy():
     states, memory = encoder.encode(src=src)
 
     # Teacher force
-    samples = decoder.greedy_decoding(bos_id=0, eos_id=VOCAB_SIZE-1,
-                                      memory=memory, states=states,
-                                      max_steps=20)
+    samples, sample_lengths = decoder.greedy_decoding(bos_id=0, eos_id=VOCAB_SIZE-1,
+                                                      memory=memory, states=states,
+                                                      max_steps=20)
     samples = samples[:, 1:]
     assert samples.size(0) == BATCH_SIZE
-    if samples.size(1) < 20:
-        endings = samples[:, -1]
-        assert (endings == VOCAB_SIZE - 1).sum().item() == BATCH_SIZE
-    elif samples.size(1) > 20:
-        assert False
