@@ -67,8 +67,15 @@ class Agent(torch.nn.Module):
         first_param = next(self.parameters())
         return first_param.device
 
-    def batch_translate(self, src, src_lengths, max_len=None):
-        """ Batch of sentences. Already padded and turn into tensor """
+    def batch_translate(self, src, src_lengths, max_lengths=None):
+        """ Batch of sentences. Already padded and turn into tensor
+            :param src: [bsz, seq_len] tensor
+            :param src_lengths： [bsz] tensor
+            :param max_lengths: could be int, None, or a tensor of [bsz]
+        """
+        if type(max_lengths) is int:
+            max_lengths = torch.tensor([max_lengths] * len(src)).to(device=src.device).int()
+
         bos_id = self.tgt_vocab.get_index(BOS_WORD)
         eos_id = self.tgt_vocab.get_index(EOS_WORD)
         states, memory = self.encoder.encode(src)
@@ -77,21 +84,21 @@ class Agent(torch.nn.Module):
                                                                   memory=memory,
                                                                   memory_lengths=src_lengths,
                                                                   states=states,
-                                                                  max_steps=max_len)
+                                                                  max_steps=max_lengths)
         return sample_ids, sample_lengths
 
 
-class ValueAgent(torch.nn.Module):
+class ValueNetwork(torch.nn.Module):
     """ A value Wrapper Model with a GRU """
     def __init__(self, src_vocab, tgt_vocab, opt):
         """ constructor """
-        super(ValueAgent, self).__init__()
+        super(ValueNetwork, self).__init__()
         self.add_module('src_emb', torch.nn.Embedding(len(src_vocab),
-                                                      opt.emb_size))
+                                                      opt.value_emb_size))
         self.add_module('tgt_emb', torch.nn.Embedding(len(tgt_vocab),
-                                                      opt.emb_size))
-        self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.hidden_size))
-        self.add_module('value_decoder', GRUValueDecoder(self.tgt_emb, hidden_size=opt.hidden_size))
+                                                      opt.value_emb_size))
+        self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.value_hidden_size))
+        self.add_module('value_decoder', GRUValueDecoder(self.tgt_emb, hidden_size=opt.value_hidden_size))
 
     @property
     def device(self):

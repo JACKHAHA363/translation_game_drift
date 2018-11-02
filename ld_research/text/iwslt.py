@@ -101,17 +101,13 @@ class IWSLTDataloader(DataLoader):
         """ Merge a list of IWSLTExample into one IWSLTExample """
         src, src_lengths = pad_to_same_length(sentences=[example.src for example in batch],
                                               pad_token=PAD_WORD, init_token=None,
-                                              end_token=None)
+                                              end_token=EOS_WORD)
         tgt, tgt_lengths = pad_to_same_length(sentences=[example.tgt for example in batch],
                                               pad_token=PAD_WORD, init_token=BOS_WORD,
                                               end_token=EOS_WORD)
-        src = self._to_tensor(self.src_vocab.numerize(src))
-        tgt = self._to_tensor(self.tgt_vocab.numerize(tgt))
-        src_lengths = self._to_tensor(src_lengths)
-        tgt_lengths = self._to_tensor(tgt_lengths)
+        src = torch.tensor((self.src_vocab.numerize(src))).long()
+        tgt = torch.tensor(self.tgt_vocab.numerize(tgt)).long()
+        src_lengths = torch.tensor(src_lengths).int()
+        tgt_lengths = torch.tensor(tgt_lengths).int()
         return IWSLTExample(src=src, src_lengths=src_lengths,
                             tgt=tgt, tgt_lengths=tgt_lengths)
-
-    def _to_tensor(self, input_list):
-        """ Turn a list to tensor """
-        return torch.tensor(input_list).long()

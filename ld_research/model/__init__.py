@@ -1,4 +1,4 @@
 """ Architecture and RNNs
 """
 from .grus import GRUEncoder, GRUDecoder
-from .agent import Agent, ValueAgent
+from .agent import Agent, ValueNetwork

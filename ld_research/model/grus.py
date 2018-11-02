@@ -95,7 +95,7 @@ class GRUDecoder(torch.nn.Module):
             :param eos_id: The id for ending
             :param memory: [bsz, src_seq_len, memory_size]
             :param states: encoder states. [1, bsz, hidden_size]
-            :param max_steps: maximum decoding length. excluding BOS_WORD. None if no maximum
+            :param max_steps: None or tensor of [bsz]. maximum decoding length. excluding BOS_WORD.
             :param memory_lengths: [bsz]
             :return (sample_ids, lengths): [bsz, sample_len]
         """
@@ -105,25 +105,46 @@ class GRUDecoder(torch.nn.Module):
                                   device=device)
         init_inputs.fill_(bos_id)
 
+        def get_finished(last_ids, lengths):
+            """ Determine whether finish decoding
+                :param last_ids: A tensor of [bsz, 1] with last sampled id (Already appended)
+                :param lengths: A tensor of [bsz] indicating lengths
+                return: finished: A tensor of [bsz] indicating whether or not it's finished
+            """
+            # Those who sample eos_id is marked finished
+            finished = (last_ids.squeeze(1) == eos_id).int()
+
+            # Or exceeding max steps
+            if max_steps is not None:
+                finished += (lengths >= max_steps).int()
+            finished = (finished > 0).int()
+            return finished
+
         def sample(logits):
-            """ sample the ids from logits [bsz, vocab_size] """
+            """ sample the ids from logits [bsz, vocab_size].
+                :return ids: [bsz, 1]
+            """
             _, ids = torch.max(logits, dim=-1)
             return ids.unsqueeze(1)
 
         # Ready to sample
         results =[init_inputs]
-        finished = torch.zeros(bsz).to(device=device).long()
-        lengths = torch.ones(bsz).to(device=device).long()
-        step = 0
-        curr_inputs = init_inputs
-        curr_hidden = states
-        while torch.sum(finished) < bsz and step < max_steps:
+        lengths = torch.ones(bsz).to(device=device).int()
+        last_ids = init_inputs
+        last_hidden = states
+        while True:
+            # See if finished
+            finished = get_finished(last_ids=last_ids,
+                                    lengths=lengths)
+            if torch.sum(finished).item() == bsz:
+                break
+
             # embedding [bsz, 1, inp_size]
-            curr_emb = self.dropout(self.embeddings(curr_inputs))
+            emb = self.dropout(self.embeddings(last_ids))
 
             # [bsz, 1, hidden_size]
-            decoder_outputs, next_hidden = self.gru(curr_emb,
-                                                    curr_hidden)
+            decoder_outputs, hidden = self.gru(emb,
+                                                    last_hidden)
             context, _ = self.attn(query=decoder_outputs,
                                    memory_bank=memory,
                                    memory_lengths=memory_lengths)
@@ -133,17 +154,16 @@ class GRUDecoder(torch.nn.Module):
             # [bsz, hidden_size]
             context = context.squeeze(1)
             logits = self.linear_out(context)
+
+            # [bsz, 1]
             sampled_ids = sample(logits)
 
-            # Update curr_inputs and step
-            step += 1
-            lengths += 1 - finished
-            finished += (1 - finished) * (sampled_ids.squeeze(1) == eos_id).long()
-            curr_inputs = sampled_ids
-            curr_hidden = next_hidden
-
-            # Appending resutls
+            # Update curr_inputs and lengths
             results.append(sampled_ids)
+            lengths += (1 - finished)
+            last_ids = sampled_ids
+            last_hidden = hidden
+
         return torch.cat(results, dim=1), lengths
 
 

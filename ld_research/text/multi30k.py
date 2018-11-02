@@ -121,8 +121,8 @@ class Multi30KLoader(DataLoader):
                                              collate_fn=self.collate_fn,
                                              drop_last=drop_last)
         self.vocabs = self.dataset.vocabs
-        self.padding_fns = {FR: lambda sents: pad_to_same_length(sents, PAD_WORD, None, None),
-                            EN: lambda sents: pad_to_same_length(sents, PAD_WORD, None, None),
+        self.padding_fns = {FR: lambda sents: pad_to_same_length(sents, PAD_WORD, None, EOS_WORD),
+                            EN: lambda sents: pad_to_same_length(sents, PAD_WORD, BOS_WORD, EOS_WORD),
                             DE: lambda sents: pad_to_same_length(sents, PAD_WORD, BOS_WORD, EOS_WORD)}
 
     def collate_fn(self, batch):

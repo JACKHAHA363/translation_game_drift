@@ -3,7 +3,7 @@
 import torch
 import argparse
 from ld_research.model.grus import GRUDecoder, GRUEncoder
-from ld_research.model import Agent, ValueAgent
+from ld_research.model import Agent, ValueNetwork
 from ld_research.settings import FR, EN
 from ld_research.text import Vocab, IWSLTDataloader, IWSLTDataset
 
@@ -103,7 +103,7 @@ def test_value_agent():
     opt = argparse.Namespace
     opt.emb_size = 256
     opt.hidden_size = 256
-    agent = ValueAgent(src_vocab, tgt_vocab, opt)
+    agent = ValueNetwork(src_vocab, tgt_vocab, opt)
 
     # Test dataset
     dataset = IWSLTDataset(mode='test', src_lang=SRC_LANG, tgt_lang=TGT_LANG)

@@ -147,11 +147,11 @@ class Trainer:
             batch.to(device=self.device)
             preds, pred_lengths = self.agent.batch_translate(batch.src,
                                                              batch.src_lengths,
-                                                             max_len=100)
+                                                             max_lengths=100)
             for tgt, pred, pred_length in zip(batch.tgt, preds, pred_lengths):
                 pred = pred[:pred_length]
                 tgt_sentence = self.tgt_vocab.to_sentences(tgt.tolist())[0]
-                pred_sentence =self.tgt_vocab.to_sentences(pred.tolist())[0]
+                pred_sentence = self.tgt_vocab.to_sentences(pred.tolist())[0]
                 references.append([tgt_sentence])
                 actual.append(pred_sentence)
 
@@ -203,12 +203,11 @@ class Trainer:
 
         # train valid and test
         if self.opt.debug:
-            LOGGER.info('Debug mode, overfit on validation...')
-            train_set = IWSLTDataset(src_lang, tgt_lang, 'valid')
-            valid_set = IWSLTDataset(src_lang, tgt_lang, 'valid')
+            LOGGER.info('Debug mode, overfit on test data...')
+            train_set = IWSLTDataset(src_lang, tgt_lang, 'test')
         else:
             train_set = IWSLTDataset(src_lang, tgt_lang, 'train')
-            valid_set = IWSLTDataset(src_lang, tgt_lang, 'valid')
+        valid_set = IWSLTDataset(src_lang, tgt_lang, 'valid')
         self.train_loader = IWSLTDataloader(train_set, batch_size=self.opt.batch_size,
                                             shuffle=True, num_workers=1)
         self.valid_loader = IWSLTDataloader(valid_set, batch_size=self.opt.batch_size,
@@ -275,6 +274,7 @@ class Trainer:
             latest_step = max(all_steps)
             latest_ckpt_path = os.path.join(save_dir, 'checkpoint.{}.pt'.format(latest_step))
         return latest_ckpt_path
+
 
 class StatisticsReport(object):
     """
@@ -380,6 +380,7 @@ class StatisticsReport(object):
         writer.add_scalar(prefix + "/accuracy", self.accuracy(), step, walltime=walltime)
         writer.add_scalar(prefix + "/tgtper", self.n_words / t, step, walltime=walltime)
         writer.add_scalar(prefix + "/lr", learning_rate, step, walltime=walltime)
+
 
 class NMTLoss(torch.nn.Module):
     """ With label smoothing,
