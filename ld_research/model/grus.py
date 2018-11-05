@@ -34,7 +34,7 @@ class GRUEncoder(torch.nn.Module):
                 states: Final encoder state. [1, bsz, num_hidden]
                 memory: The memory bank for attention. `[bsz, seq_len, num_hidden]`
         """
-        emb = self.dropout(self.embeddings(src))
+        emb = self.embeddings(src)
         memory, states = self.gru(emb)
         return states, memory
 
@@ -75,7 +75,7 @@ class GRUDecoder(torch.nn.Module):
         # [bsz, seq_len, hidden_size]
         bsz = targets.size(0)
         seq_len = targets.size(1)
-        embs = self.dropout(self.embeddings(targets))
+        embs = self.embeddings(targets)
         decoder_outputs, _ = self.gru(embs, states)
 
         # Compute attention
@@ -105,20 +105,22 @@ class GRUDecoder(torch.nn.Module):
                                   device=device)
         init_inputs.fill_(bos_id)
 
-        def get_finished(last_ids, lengths):
+        def get_finished(last_ids, lengths, finished):
             """ Determine whether finish decoding
                 :param last_ids: A tensor of [bsz, 1] with last sampled id (Already appended)
                 :param lengths: A tensor of [bsz] indicating lengths
+                :param finished: A tensor of [bsz] indicating if finished
                 return: finished: A tensor of [bsz] indicating whether or not it's finished
             """
             # Those who sample eos_id is marked finished
-            finished = (last_ids.squeeze(1) == eos_id).int()
+            new_finished = (last_ids.squeeze(1) == eos_id).int()
 
             # Or exceeding max steps
             if max_steps is not None:
-                finished += (lengths >= max_steps).int()
-            finished = (finished > 0).int()
-            return finished
+                new_finished += (lengths >= max_steps).int()
+            new_finished += finished
+            new_finished = (new_finished > 0).int()
+            return new_finished
 
         def sample(logits):
             """ sample the ids from logits [bsz, vocab_size].
@@ -130,17 +132,19 @@ class GRUDecoder(torch.nn.Module):
         # Ready to sample
         results =[init_inputs]
         lengths = torch.ones(bsz).to(device=device).int()
+        finished = torch.zeros(bsz).to(device=device).int()
         last_ids = init_inputs
         last_hidden = states
         while True:
             # See if finished
             finished = get_finished(last_ids=last_ids,
-                                    lengths=lengths)
+                                    lengths=lengths,
+                                    finished=finished)
             if torch.sum(finished).item() == bsz:
                 break
 
             # embedding [bsz, 1, inp_size]
-            emb = self.dropout(self.embeddings(last_ids))
+            emb = self.embeddings(last_ids)
 
             # [bsz, 1, hidden_size]
             decoder_outputs, hidden = self.gru(emb,
