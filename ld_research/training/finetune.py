@@ -175,7 +175,8 @@ class Trainer(BaseTrainer):
             train_stats.output(step=step,
                                learning_rate=learning_rate,
                                num_steps=self.opt.train_steps,
-                               train_start=train_start)
+                               train_start=train_start,
+                               prefix=prefix)
             train_stats.log_tensorboard(prefix=prefix, writer=self.writer,
                                         learning_rate=learning_rate,
                                         step=step)
@@ -207,7 +208,7 @@ class Trainer(BaseTrainer):
                                              tgt_vocab=self.en_vocab,
                                              opt=self.opt)
         self.agents[AgentType.EN_DE] = Agent(src_vocab=self.en_vocab,
-                                             tgt_vocab=self.fr_vocab,
+                                             tgt_vocab=self.de_vocab,
                                              opt=self.opt)
         if ckpt:
             for agent_type in ALL_TYPES:

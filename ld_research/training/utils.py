@@ -82,7 +82,7 @@ class StatisticsReport(object):
         """ compute elapsed time """
         return time.time() - self.start_time
 
-    def output(self, step, num_steps, learning_rate, train_start):
+    def output(self, step, num_steps, learning_rate, train_start, prefix=''):
         """Write out statistics to stdout.
 
         Args:
@@ -90,12 +90,14 @@ class StatisticsReport(object):
            num_steps (int): total batches
            learning_rate (float): learning rate
            train_start: The starting time of training
+           prefix: The title
         """
         t = self.elapsed_time()
         LOGGER.info(
-            ("Step %2d/%5d; acc: %6.2f; ppl: %5.2f; xent: %4.2f; " +
+            ("%s Step %2d/%5d; acc: %6.2f; ppl: %5.2f; xent: %4.2f; " +
              "lr: %7.5f; %3.0f/%3.0f tok/s; %6.0f sec")
-            % (step, num_steps,
+            % (prefix,
+               step, num_steps,
                self.accuracy(),
                self.ppl(),
                self.xent(),

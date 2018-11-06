@@ -132,5 +132,5 @@ class Multi30KLoader(DataLoader):
         for lang in ALL_LANG:
             ids, lengths = self.padding_fns[lang]([example.id_dicts[lang] for example in batch])
             id_dicts[lang] = torch.tensor(self.vocabs[lang].numerize(ids)).long()
-            length_dicts[lang] = torch.tensor(lengths)
+            length_dicts[lang] = torch.tensor(lengths).int()
         return Multi30KExample.from_dicts(id_dicts=id_dicts, length_dicts=length_dicts)

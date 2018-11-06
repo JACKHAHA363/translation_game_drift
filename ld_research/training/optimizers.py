@@ -102,11 +102,7 @@ class Optimizer(object):
         """
         self._step += 1
 
-        # Decay method used in tensor2tensor.
-        if self.decay_method == "noam":
-            raise NotImplementedError('noam not implemented')
-        # Decay based on start_decay_steps every decay_steps
-        else:
+        if self.decay_method == "piecewise":
             if ((self.start_decay_steps is not None) and (
                      self._step >= self.start_decay_steps)):
                 self.start_decay = True
@@ -114,6 +110,8 @@ class Optimizer(object):
                 if ((self._step - self.start_decay_steps)
                    % self.decay_steps == 0):
                     self.learning_rate = self.learning_rate * self.lr_decay
+        else:
+            raise NotImplementedError('decay method {} not implemented'.format(self.decay_method))
 
         if self.method != 'sparseadam':
             self.optimizer.param_groups[0]['lr'] = self.learning_rate
