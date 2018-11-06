@@ -7,7 +7,7 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from ld_research.settings import ROOT_BPE_DIR, PAD_WORD, EOS_WORD, BOS_WORD
+from ld_research.settings import ROOT_BPE_DIR, EOS_WORD, BOS_WORD
 from ld_research.text import Vocab
 from ld_research.text.utils import pad_to_same_length
 
@@ -100,10 +100,10 @@ class IWSLTDataloader(DataLoader):
     def collate_fn(self, batch):
         """ Merge a list of IWSLTExample into one IWSLTExample """
         src, src_lengths = pad_to_same_length(sentences=[example.src for example in batch],
-                                              pad_token=PAD_WORD, init_token=None,
+                                              pad_token=EOS_WORD, init_token=None,
                                               end_token=EOS_WORD)
         tgt, tgt_lengths = pad_to_same_length(sentences=[example.tgt for example in batch],
-                                              pad_token=PAD_WORD, init_token=BOS_WORD,
+                                              pad_token=EOS_WORD, init_token=BOS_WORD,
                                               end_token=EOS_WORD)
         src = torch.tensor((self.src_vocab.numerize(src))).long()
         tgt = torch.tensor(self.tgt_vocab.numerize(tgt)).long()

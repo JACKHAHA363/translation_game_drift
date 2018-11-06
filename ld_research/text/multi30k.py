@@ -6,7 +6,7 @@ import os
 import torch
 
 from ld_research.text.utils import Vocab, pad_to_same_length
-from ld_research.settings import FR, EN, DE, ROOT_BPE_DIR, PAD_WORD, EOS_WORD, BOS_WORD
+from ld_research.settings import FR, EN, DE, ROOT_BPE_DIR, EOS_WORD, BOS_WORD
 
 # List all language
 ALL_LANG = [FR, EN, DE]
@@ -121,9 +121,9 @@ class Multi30KLoader(DataLoader):
                                              collate_fn=self.collate_fn,
                                              drop_last=drop_last)
         self.vocabs = self.dataset.vocabs
-        self.padding_fns = {FR: lambda sents: pad_to_same_length(sents, PAD_WORD, None, EOS_WORD),
-                            EN: lambda sents: pad_to_same_length(sents, PAD_WORD, BOS_WORD, EOS_WORD),
-                            DE: lambda sents: pad_to_same_length(sents, PAD_WORD, BOS_WORD, EOS_WORD)}
+        self.padding_fns = {FR: lambda sents: pad_to_same_length(sents, EOS_WORD, None, EOS_WORD),
+                            EN: lambda sents: pad_to_same_length(sents, EOS_WORD, BOS_WORD, EOS_WORD),
+                            DE: lambda sents: pad_to_same_length(sents, EOS_WORD, BOS_WORD, EOS_WORD)}
 
     def collate_fn(self, batch):
         """ Given a list merge into one data """

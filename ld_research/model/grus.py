@@ -90,48 +90,50 @@ class GRUDecoder(torch.nn.Module):
         return logits, alignments
 
     def greedy_decoding(self, bos_id, eos_id, memory, states, max_steps=None, memory_lengths=None):
-        """ Perform greedy decoding
+        """ Perform greedy decoding for max_steps
             :param bos_id: The initial id to start sample
             :param eos_id: The id for ending
             :param memory: [bsz, src_seq_len, memory_size]
             :param states: encoder states. [1, bsz, hidden_size]
-            :param max_steps: None or tensor of [bsz]. maximum decoding length. excluding BOS_WORD.
+            :param max_steps: None or int or tensor of [bsz]. maximum decoding length. Excluding BOS_WORD and EOS_WORD
             :param memory_lengths: [bsz]
-            :return (sample_ids, lengths): [bsz, sample_len]
+            :return (sample_ids, lengths):
+                sample_ids: [bsz, sample_lengths] The sampled_ids.
+                sample_lengths: [bsz] The length of each sentence including BOS and EOS
         """
         bsz = memory.size(0)
         device = memory.device
-        init_inputs = torch.zeros(size=[bsz, 1], dtype=torch.int64,
+        init_inputs = torch.zeros(size=[bsz], dtype=torch.int64,
                                   device=device)
         init_inputs.fill_(bos_id)
 
         def get_finished(last_ids, lengths, finished):
             """ Determine whether finish decoding
-                :param last_ids: A tensor of [bsz, 1] with last sampled id (Already appended)
+                :param last_ids: A tensor of [bsz] with last sampled id (Already appended)
                 :param lengths: A tensor of [bsz] indicating lengths
                 :param finished: A tensor of [bsz] indicating if finished
                 return: finished: A tensor of [bsz] indicating whether or not it's finished
             """
             # Those who sample eos_id is marked finished
-            new_finished = (last_ids.squeeze(1) == eos_id).int()
+            new_finished = (last_ids == eos_id).int()
 
             # Or exceeding max steps
             if max_steps is not None:
-                new_finished += (lengths >= max_steps).int()
+                new_finished += (lengths >= max_steps + 1).int()
             new_finished += finished
             new_finished = (new_finished > 0).int()
             return new_finished
 
         def sample(logits):
             """ sample the ids from logits [bsz, vocab_size].
-                :return ids: [bsz, 1]
+                :return ids: [bsz]
             """
             _, ids = torch.max(logits, dim=-1)
-            return ids.unsqueeze(1)
+            return ids
 
         # Ready to sample
         results =[init_inputs]
-        lengths = torch.ones(bsz).to(device=device).int()
+        lengths = torch.ones(bsz).to(device=device).int()   # already ones since BOS
         finished = torch.zeros(bsz).to(device=device).int()
         last_ids = init_inputs
         last_hidden = states
@@ -144,11 +146,11 @@ class GRUDecoder(torch.nn.Module):
                 break
 
             # embedding [bsz, 1, inp_size]
-            emb = self.embeddings(last_ids)
+            emb = self.embeddings(last_ids.unsqueeze(1))
 
             # [bsz, 1, hidden_size]
             decoder_outputs, hidden = self.gru(emb,
-                                                    last_hidden)
+                                               last_hidden)
             context, _ = self.attn(query=decoder_outputs,
                                    memory_bank=memory,
                                    memory_lengths=memory_lengths)
@@ -159,16 +161,26 @@ class GRUDecoder(torch.nn.Module):
             context = context.squeeze(1)
             logits = self.linear_out(context)
 
-            # [bsz, 1]
+            # [bsz]
             sampled_ids = sample(logits)
+            sampled_ids = sampled_ids * (1 - finished.long())
+            sampled_ids += eos_id * finished.long()
 
             # Update curr_inputs and lengths
+            last_eos = results[-1] == eos_id
+            lengths += (1 - last_eos.int())
             results.append(sampled_ids)
-            lengths += (1 - finished)
+
+            # Update next input
             last_ids = sampled_ids
             last_hidden = hidden
 
-        return torch.cat(results, dim=1), lengths
+        # Update final lengths with EOS
+        final_ids = (torch.ones([bsz]) * eos_id).long().to(device=device)
+        last_eos = results[-1] == eos_id
+        lengths += (1 - last_eos.int())
+        results.append(final_ids)
+        return torch.stack(results, dim=1), lengths
 
 
 class GRUValueDecoder(torch.nn.Module):

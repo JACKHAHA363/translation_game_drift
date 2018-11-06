@@ -3,7 +3,7 @@
 from os.path import join
 
 from ld_research.settings import LOGGER, ROOT_BPE_DIR, \
-    BOS_WORD, EOS_WORD, UNK_WORD, PAD_WORD
+    BOS_WORD, EOS_WORD, UNK_WORD
 
 
 def get_vocab_file(lang):
@@ -32,7 +32,6 @@ class Vocab:
         self.words_with_freq[BOS_WORD] = 1
         self.words_with_freq[EOS_WORD] = 1
         self.words_with_freq[UNK_WORD] = 1
-        self.words_with_freq[PAD_WORD] = 1
 
         # get words
         self.idx2words = list(self.words_with_freq.keys())
@@ -84,10 +83,10 @@ class Vocab:
     def to_sentences(self, ids, excludes=None):
         """ Get a list of list of words and exclude some of them
             :param ids: list of list of word index (int) or list of ids
-            :param excludes: List of words to exclude. If None default to BOS, EOS, PAD
+            :param excludes: List of words to exclude. If None default to BOS, EOS
             :return: sentences. A list of list of str.
         """
-        excludes = excludes if excludes else [BOS_WORD, EOS_WORD, PAD_WORD]
+        excludes = excludes if excludes else [BOS_WORD, EOS_WORD]
         if type(ids[0]) is int:
             ids = [ids]
         sentences = []
@@ -98,7 +97,7 @@ class Vocab:
         return sentences
 
 
-def pad_to_same_length(sentences, pad_token=PAD_WORD,
+def pad_to_same_length(sentences, pad_token=EOS_WORD,
                        init_token=None, end_token=None):
     """ Given a list of sentences. Pad each to the maximum length.
         :param sentences: A list of list of indices

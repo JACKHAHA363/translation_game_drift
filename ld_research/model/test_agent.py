@@ -11,7 +11,7 @@ from ld_research.text import Vocab, IWSLTDataloader, IWSLTDataset
 VOCAB_SIZE = 500
 EMB_SIZE = 64
 HIDDEN_SIZE = 64
-BATCH_SIZE = 4
+BATCH_SIZE = 200
 SEQ_LEN = 6
 TGT_SEQ_LEN = 5
 SRC_LANG = FR
@@ -65,12 +65,79 @@ def test_decoder_greedy():
     src = _prepare_batch(SEQ_LEN)
     states, memory = encoder.encode(src=src)
 
-    # Teacher force
-    samples, sample_lengths = decoder.greedy_decoding(bos_id=0, eos_id=VOCAB_SIZE-1,
-                                                      memory=memory, states=states,
-                                                      max_steps=20)
-    samples = samples[:, 1:]
+    # Greedy decode
+    bos_id = 0
+    eos_id = VOCAB_SIZE - 1
+    max_steps = 50
+    samples, sample_lengths = decoder.greedy_decoding(bos_id=bos_id,
+                                                      eos_id=eos_id,
+                                                      memory=memory,
+                                                      states=states,
+                                                      max_steps=max_steps)
     assert samples.size(0) == BATCH_SIZE
+    assert samples.size(1) <= max_steps + 2
+    for sample, length in zip(samples, sample_lengths):
+        length = length.item()
+        assert length <= max_steps + 2
+
+        # BOS at beginning
+        assert sample[0].item() == bos_id
+
+        # EOS at length -1
+        assert sample[length - 1].item() == eos_id
+
+        # No EOS in between
+        between_eos = (sample[1:length - 2] == eos_id).int()
+        assert torch.sum(between_eos).item() == 0
+
+        # Rest is eos
+        rest = sample[length:]
+        if len(rest) > 0:
+            assert torch.sum((rest == eos_id).int()).item() == len(rest)
+
+
+def test_decoder_greedy_tensor():
+    """ Test greedy """
+    embeddings = torch.nn.Embedding(num_embeddings=VOCAB_SIZE,
+                                    embedding_dim=EMB_SIZE)
+    encoder = GRUEncoder(embeddings, hidden_size=HIDDEN_SIZE)
+    decoder = GRUDecoder(embeddings, hidden_size=HIDDEN_SIZE)
+    src = _prepare_batch(SEQ_LEN)
+    states, memory = encoder.encode(src=src)
+
+    # Greedy decode
+    bos_id = 0
+    eos_id = VOCAB_SIZE - 1
+    max_steps = torch.randint(SEQ_LEN, size=[BATCH_SIZE]).int()
+    samples, sample_lengths = decoder.greedy_decoding(bos_id=bos_id,
+                                                      eos_id=eos_id,
+                                                      memory=memory,
+                                                      states=states,
+                                                      max_steps=max_steps)
+    assert samples.size(0) == BATCH_SIZE
+    assert samples.size(1) <= torch.max(max_steps).item() + 2
+    for sample, length, max_step in zip(samples, sample_lengths, max_steps):
+        length = length.item()
+        max_step = max_step.item()
+        if length == 2:
+            pass
+        assert length <= max_step + 2
+
+        # BOS at beginning
+        assert sample[0].item() == bos_id
+
+        # EOS at length -1
+        assert sample[length - 1].item() == eos_id
+
+        # No EOS in between
+        between_eos = (sample[1:length - 2] == eos_id).int()
+        assert torch.sum(between_eos).item() == 0
+
+        # Rest is padding
+        rest = sample[length:]
+        if len(rest) > 0:
+            assert torch.sum((rest == eos_id).int()).item() == len(rest)
+
 
 def test_agent():
     """ test agent """
@@ -101,8 +168,8 @@ def test_value_agent():
     src_vocab = Vocab('.fr')
     tgt_vocab = Vocab('.en')
     opt = argparse.Namespace
-    opt.emb_size = 256
-    opt.hidden_size = 256
+    opt.value_emb_size = 256
+    opt.value_hidden_size = 256
     agent = ValueNetwork(src_vocab, tgt_vocab, opt)
 
     # Test dataset
