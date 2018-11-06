@@ -8,7 +8,26 @@ from ld_research.text import Vocab
 from ld_research.model.utils import sequence_mask
 from ld_research.settings import BOS_WORD, EOS_WORD
 
-class Agent(torch.nn.Module):
+
+class Model(torch.nn.Module):
+    """ Base class for model """
+    def __init__(self):
+        """ Constructor """
+        super(Model, self).__init__()
+
+    def initialize(self, param_init):
+        """ Initiaize the parameter uniformly """
+        for p in self.parameters():
+            p.data.uniform_(-param_init, param_init)
+
+    @property
+    def device(self):
+        """ Return the device """
+        first_param = next(self.parameters())
+        return first_param.device
+
+
+class Agent(Model):
     """ The model. A seq to seq model """
     def __init__(self, src_vocab, tgt_vocab, opt):
         """ Constructor
@@ -61,12 +80,6 @@ class Agent(torch.nn.Module):
             outputs += [alignments]
         return tuple(outputs)
 
-    @property
-    def device(self):
-        """ Return the device """
-        first_param = next(self.parameters())
-        return first_param.device
-
     def batch_translate(self, src, src_lengths, max_lengths=None):
         """ Batch of sentences. Already padded and turn into tensor
             :param src: [bsz, seq_len] tensor
@@ -88,7 +101,7 @@ class Agent(torch.nn.Module):
         return sample_ids, sample_lengths
 
 
-class ValueNetwork(torch.nn.Module):
+class ValueNetwork(Model):
     """ A value Wrapper Model with a GRU """
     def __init__(self, src_vocab, tgt_vocab, opt):
         """ constructor """
@@ -99,12 +112,6 @@ class ValueNetwork(torch.nn.Module):
                                                       opt.value_emb_size))
         self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.value_hidden_size))
         self.add_module('value_decoder', GRUValueDecoder(self.tgt_emb, hidden_size=opt.value_hidden_size))
-
-    @property
-    def device(self):
-        """ Return the device """
-        first_param = next(self.parameters())
-        return first_param.device
 
     def forward(self, src, tgt, src_lengths=None, tgt_lengths=None, with_align=False):
         """ Get values

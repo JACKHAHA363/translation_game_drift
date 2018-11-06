@@ -170,6 +170,3 @@ class MultipleOptimizer(object):
         assert len(state_dicts) == len(self.optimizers)
         for i in range(len(state_dicts)):
             self.optimizers[i].load_state_dict(state_dicts[i])
-
-    def to(self, ):
-        self.optimizers.to()
