@@ -118,6 +118,8 @@ class Trainer(BaseTrainer):
 
                 # Increment step
                 step += 1
+                if step > self.opt.train_steps:
+                    break
 
     def validate(self, step):
         """ Validatation """
