@@ -58,8 +58,8 @@ class Trainer(BaseTrainer):
                 trans_en, trans_en_lengths = self._get_en_translation(batch)
                 action_logprobs, actions, action_masks = self.fr_en_agent(src=batch.fr, src_lengths=batch.fr_lengths,
                                                                           tgt=trans_en, tgt_lengths=trans_en_lengths)
-                values, = self.value_net(src=batch.fr, src_lengths=batch.fr_lengths,
-                                         tgt=trans_en, tgt_lengths=trans_en_lengths)
+                values = self.value_net(src=batch.fr, src_lengths=batch.fr_lengths,
+                                        tgt=trans_en, tgt_lengths=trans_en_lengths)
 
                 # Get Germany Loss
                 de_batch_results = process_batch_update_stats(src=trans_en[:, 1:],
@@ -148,7 +148,8 @@ class Trainer(BaseTrainer):
             # Get translated English
             trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
                                                                           src_lengths=batch.fr_lengths,
-                                                                          max_lengths=batch.fr_lengths)
+                                                                          max_lengths=batch.fr_lengths,
+                                                                          method=self.opt.sample_method)
             en_actuals += self.en_vocab.to_sentences(ids=trans_en.tolist())
             en_references += [[en_sent] for en_sent in self.en_vocab.to_sentences(ids=batch.en.tolist())]
 
@@ -162,7 +163,8 @@ class Trainer(BaseTrainer):
             # Get translated Germany
             trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
                                                                           src_lengths=trans_en_lengths - 1,
-                                                                          max_lengths=100)
+                                                                          max_lengths=100,
+                                                                          method=self.opt.sample_method)
             de_actuals += self.de_vocab.to_sentences(ids=trans_de.tolist())
             de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(ids=batch.de.tolist())]
 
@@ -246,7 +248,8 @@ class Trainer(BaseTrainer):
         self.fr_en_agent.eval()
         trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
                                                                       src_lengths=batch.fr_lengths,
-                                                                      max_lengths=batch.fr_lengths)
+                                                                      max_lengths=batch.fr_lengths,
+                                                                      method=self.opt.sample_method)
         self.fr_en_agent.train()
         return trans_en, trans_en_lengths
 

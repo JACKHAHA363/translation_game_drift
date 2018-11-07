@@ -85,7 +85,8 @@ class Trainer(BaseTrainer):
                                        criterion=self.criterion)
             preds, pred_lengths = self.agent.batch_translate(batch.src,
                                                              batch.src_lengths,
-                                                             max_lengths=100)
+                                                             max_lengths=100,
+                                                             method=self.opt.sample_method)
             actuals += self.tgt_vocab.to_sentences(preds.tolist())
             references += [[tgt_sent] for tgt_sent in self.tgt_vocab.to_sentences(batch.tgt.tolist())]
 

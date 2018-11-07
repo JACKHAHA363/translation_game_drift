@@ -65,6 +65,8 @@ def add_general_args(parser):
                         Set to zero to turn off label smoothing.
                         For more detailed information, see:
                         https://arxiv.org/abs/1512.00567""")
+    parser.add_argument('-sample_method', choices=['random', 'greedy'],
+                        type=str, default='greedy', help='Which method to translate')
     return parser
 
 

@@ -69,11 +69,12 @@ def test_decoder_greedy():
     bos_id = 0
     eos_id = VOCAB_SIZE - 1
     max_steps = 50
-    samples, sample_lengths = decoder.greedy_decoding(bos_id=bos_id,
-                                                      eos_id=eos_id,
-                                                      memory=memory,
-                                                      states=states,
-                                                      max_steps=max_steps)
+    samples, sample_lengths = decoder.decode(bos_id=bos_id,
+                                             eos_id=eos_id,
+                                             memory=memory,
+                                             states=states,
+                                             max_steps=max_steps,
+                                             method='greedy')
     assert samples.size(0) == BATCH_SIZE
     assert samples.size(1) <= max_steps + 2
     for sample, length in zip(samples, sample_lengths):
@@ -96,7 +97,7 @@ def test_decoder_greedy():
             assert torch.sum((rest == eos_id).int()).item() == len(rest)
 
 
-def test_decoder_greedy_tensor():
+def test_decoder_random():
     """ Test greedy """
     embeddings = torch.nn.Embedding(num_embeddings=VOCAB_SIZE,
                                     embedding_dim=EMB_SIZE)
@@ -109,11 +110,12 @@ def test_decoder_greedy_tensor():
     bos_id = 0
     eos_id = VOCAB_SIZE - 1
     max_steps = torch.randint(SEQ_LEN, size=[BATCH_SIZE]).int()
-    samples, sample_lengths = decoder.greedy_decoding(bos_id=bos_id,
-                                                      eos_id=eos_id,
-                                                      memory=memory,
-                                                      states=states,
-                                                      max_steps=max_steps)
+    samples, sample_lengths = decoder.decode(bos_id=bos_id,
+                                             eos_id=eos_id,
+                                             memory=memory,
+                                             states=states,
+                                             max_steps=max_steps,
+                                             method='random')
     assert samples.size(0) == BATCH_SIZE
     assert samples.size(1) <= torch.max(max_steps).item() + 2
     for sample, length, max_step in zip(samples, sample_lengths, max_steps):
@@ -163,6 +165,7 @@ def test_agent():
     assert list(masks.size()) == [BATCH_SIZE, batch.tgt.size(1) - 1]
     assert list(aligns.size()) == [BATCH_SIZE, batch.tgt.size(1) - 1, batch.src.size(1)]
 
+
 def test_value_agent():
     """ test agent """
     src_vocab = Vocab('.fr')
@@ -178,10 +181,8 @@ def test_value_agent():
     batch = next(iter(dataloader))
 
     # With alignment
-    values, masks, aligns = agent.forward(batch.src,
-                                          batch.tgt,
-                                          batch.src_lengths,
-                                          batch.tgt_lengths, with_align=True)
+    values = agent.forward(batch.src,
+                           batch.tgt,
+                           batch.src_lengths,
+                           batch.tgt_lengths)
     assert list(values.size()) == [BATCH_SIZE, batch.tgt.size(1) - 1]
-    assert list(masks.size()) == [BATCH_SIZE, batch.tgt.size(1) - 1]
-    assert list(aligns.size()) == [BATCH_SIZE, batch.tgt.size(1) - 1, batch.src.size(1)]

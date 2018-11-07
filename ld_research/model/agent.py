@@ -80,11 +80,12 @@ class Agent(Model):
             outputs += [alignments]
         return tuple(outputs)
 
-    def batch_translate(self, src, src_lengths, max_lengths=None):
+    def batch_translate(self, src, src_lengths, max_lengths=None, method='random'):
         """ Batch of sentences. Already padded and turn into tensor
             :param src: [bsz, seq_len] tensor
             :param src_lengths： [bsz] tensor
             :param max_lengths: could be int, None, or a tensor of [bsz]
+            :param method: One of 'random' and 'greedy'
         """
         if type(max_lengths) is int:
             max_lengths = torch.tensor([max_lengths] * len(src)).to(device=src.device).int()
@@ -92,12 +93,13 @@ class Agent(Model):
         bos_id = self.tgt_vocab.get_index(BOS_WORD)
         eos_id = self.tgt_vocab.get_index(EOS_WORD)
         states, memory = self.encoder.encode(src)
-        sample_ids, sample_lengths = self.decoder.greedy_decoding(bos_id=bos_id,
-                                                                  eos_id=eos_id,
-                                                                  memory=memory,
-                                                                  memory_lengths=src_lengths,
-                                                                  states=states,
-                                                                  max_steps=max_lengths)
+        sample_ids, sample_lengths = self.decoder.decode(bos_id=bos_id,
+                                                         eos_id=eos_id,
+                                                         memory=memory,
+                                                         memory_lengths=src_lengths,
+                                                         states=states,
+                                                         max_steps=max_lengths,
+                                                         method=method)
         return sample_ids, sample_lengths
 
 
@@ -113,27 +115,21 @@ class ValueNetwork(Model):
         self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.value_hidden_size))
         self.add_module('value_decoder', GRUValueDecoder(self.tgt_emb, hidden_size=opt.value_hidden_size))
 
-    def forward(self, src, tgt, src_lengths=None, tgt_lengths=None, with_align=False):
+    def forward(self, src, tgt, src_lengths=None, tgt_lengths=None):
         """ Get values
             :param src [bsz, src_len]
             :param tgt [bsz, tgt_len]
             :param src_lengths [bsz]
             :param tgt_lengths [bsz]
-            :param with_align: Whether or not output alignments
-            :return: values, alignment (depends)
-                values: The value result. [bsz, tgt_len-1, 1]
-                alignments: The attention alignments [bsz, tgt_len-1, src_len]
+            :return: values. The value result. [bsz, tgt_len-1, 1]
         """
         states, memory = self.encoder.encode(src)
 
         # Set up input and output for decoder
         tgt_in = tgt[:, :-1]
-        values, alignments = self.value_decoder.compute_values(targets=tgt_in,
-                                                               memory=memory,
-                                                               states=states,
-                                                               memory_lengths=src_lengths)
+        values = self.value_decoder(targets=tgt_in,
+                                    memory=memory,
+                                    states=states,
+                                    memory_lengths=src_lengths)
         # Get outputs
-        outputs = [values]
-        if with_align:
-            outputs += [alignments]
-        return tuple(outputs)
+        return values

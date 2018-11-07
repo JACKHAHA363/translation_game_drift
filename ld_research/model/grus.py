@@ -1,7 +1,26 @@
 """ Contains main method for GRU
 """
 import torch
+from torch.distributions import Categorical
 from ld_research.model.utils import GlobalAttention
+
+
+def greedy_sample(logits):
+    """ Greedy sample """
+    _, ids = torch.max(logits, dim=-1)
+    return ids
+
+
+def random_sample(logits):
+    """ sample the ids from logits [bsz, vocab_size].
+        :return ids: [bsz]
+    """
+    dists = Categorical(logits=logits)
+    return dists.sample()
+
+
+SAMPLING = {'greedy': greedy_sample,
+            'random': random_sample}
 
 
 class GRUEncoder(torch.nn.Module):
@@ -37,6 +56,7 @@ class GRUEncoder(torch.nn.Module):
         emb = self.embeddings(src)
         memory, states = self.gru(emb)
         return states, memory
+
 
 class GRUDecoder(torch.nn.Module):
     """ The decoder """
@@ -89,7 +109,8 @@ class GRUDecoder(torch.nn.Module):
         logits = logits.view(bsz, seq_len, self.embeddings.num_embeddings)
         return logits, alignments
 
-    def greedy_decoding(self, bos_id, eos_id, memory, states, max_steps=None, memory_lengths=None):
+    def decode(self, bos_id, eos_id, memory, states,
+               max_steps=None, memory_lengths=None, method='greedy'):
         """ Perform greedy decoding for max_steps
             :param bos_id: The initial id to start sample
             :param eos_id: The id for ending
@@ -97,6 +118,7 @@ class GRUDecoder(torch.nn.Module):
             :param states: encoder states. [1, bsz, hidden_size]
             :param max_steps: None or int or tensor of [bsz]. maximum decoding length. Excluding BOS_WORD and EOS_WORD
             :param memory_lengths: [bsz]
+            :param method: one of 'greedy' or 'random'
             :return (sample_ids, lengths):
                 sample_ids: [bsz, sample_lengths] The sampled_ids.
                 sample_lengths: [bsz] The length of each sentence including BOS and EOS
@@ -124,12 +146,10 @@ class GRUDecoder(torch.nn.Module):
             new_finished = (new_finished > 0).int()
             return new_finished
 
-        def sample(logits):
-            """ sample the ids from logits [bsz, vocab_size].
-                :return ids: [bsz]
-            """
-            _, ids = torch.max(logits, dim=-1)
-            return ids
+        # Get sample mechanism
+        get_ids = SAMPLING.get(method)
+        if get_ids is None:
+            raise ValueError('sample method {} not implemented'.format(method))
 
         # Ready to sample
         results =[init_inputs]
@@ -162,7 +182,7 @@ class GRUDecoder(torch.nn.Module):
             logits = self.linear_out(context)
 
             # [bsz]
-            sampled_ids = sample(logits)
+            sampled_ids = get_ids(logits)
             sampled_ids = sampled_ids * (1 - finished.long())
             sampled_ids += eos_id * finished.long()
 
@@ -206,15 +226,13 @@ class GRUValueDecoder(torch.nn.Module):
                                           1,
                                           bias=True)
 
-    def compute_values(self, targets, memory, states, memory_lengths=None):
+    def forward(self, targets, memory, states, memory_lengths=None):
         """ Do a teacher forcing
             :param targets: [bsz, seq_len]
             :param memory: [bsz, src_seq_len, memory_size]
             :param states: encoder states. [1, bsz, hidden_size]
             :param memory_lengths: [bsz]
-            :return: (values, alignments)
-                values: [bsz, seq_len]
-                alignments: [bsz, seq_len, src_seq_len]
+            :return: values [bsz, seq_len]
         """
         # decoder_outputs
         # [bsz, seq_len, hidden_size]
@@ -224,12 +242,12 @@ class GRUValueDecoder(torch.nn.Module):
         decoder_outputs, _ = self.gru(embs, states)
 
         # Compute attention
-        context, alignments = self.attn(query=decoder_outputs,
-                                        memory_bank=memory,
-                                        memory_lengths=memory_lengths)
+        context, _ = self.attn(query=decoder_outputs,
+                               memory_bank=memory,
+                               memory_lengths=memory_lengths)
         context = self.dropout(context)
 
         # Compute values
         values = self.linear_out(context.view(-1, self.hidden_size))
         values = values.view(bsz, seq_len, 1).squeeze(-1)
-        return values, alignments
+        return values
