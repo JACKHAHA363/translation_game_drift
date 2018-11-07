@@ -168,6 +168,11 @@ def process_batch_update_stats(src, src_lengths, tgt, tgt_lengths, stats_rpt, ag
         :param agent: An instance of `Agent`
         :param criterion: An instance of `NMTLoss`
         return (batch_stats, loss, logprobs, targets, masks)
+            batch_stats: An instance of `StatisticsReport`
+            total_loss: A scalar
+            loss: [bsz, seq_len]
+            logprobs: [bsz, seq_len, vocab_size]
+            targets, masks: [bsz, seq_len]
     """
     logprobs, targets, masks = agent(src=src,
                                      tgt=tgt,
@@ -177,14 +182,14 @@ def process_batch_update_stats(src, src_lengths, tgt, tgt_lengths, stats_rpt, ag
                      targets.contiguous().view(-1))
     loss = loss.view(logprobs.size(0), logprobs.size(1))
     if masks is not None:
-        loss = torch.sum(loss * masks)
+        total_loss = torch.sum(loss * masks)
     else:
-        loss = torch.sum(loss)
+        total_loss = torch.sum(loss)
     batch_stats = StatisticsReport.get_batch_stats(tgt_lengths=tgt_lengths,
                                                    src_lengths=src_lengths,
                                                    logprobs=logprobs,
-                                                   loss=loss,
+                                                   loss=total_loss,
                                                    masks=masks,
                                                    targets=targets)
     stats_rpt.update(batch_stats)
-    return batch_stats, loss, logprobs, targets, masks
+    return batch_stats, total_loss, loss, logprobs, targets, masks

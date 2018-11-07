@@ -29,8 +29,8 @@ class Multi30KExample:
     def to(self, **kwargs):
         """ Change device """
         for lang in ALL_LANG:
-            self.id_dicts[lang].to(**kwargs)
-            self.length_dicts[lang].to(**kwargs)
+            self.id_dicts[lang] = self.id_dicts[lang].to(**kwargs)
+            self.length_dicts[lang] = self.length_dicts[lang].to(**kwargs)
 
     @classmethod
     def from_dicts(cls, id_dicts, length_dicts):

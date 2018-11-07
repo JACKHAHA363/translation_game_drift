@@ -22,6 +22,10 @@ def add_communication_args(parser):
                         help='path to the fr-en checkpoint')
     parser.add_argument('-pretrain_en_de_ckpt', default=None, type=str,
                         help='path to the en-de checkpoint')
+    parser.add_argument('-v_coeff', default=0.5, type=float,
+                        help='value loss coefficient')
+    parser.add_argument('-ent_coeff', default=0.01, type=float,
+                        help='entropy loss coefficient')
     return parser
 
 

@@ -49,11 +49,11 @@ class Trainer(BaseTrainer):
                                                            agent=self.agent,
                                                            criterion=self.criterion)
                 batch_stats = batch_results[0]
-                loss = batch_results[1]
+                total_loss = batch_results[1]
 
                 # Backward and learing
                 self.optimizer.zero_grad()
-                (loss / batch_stats.n_words).backward()
+                (total_loss / batch_stats.n_words).backward()
                 self.optimizer.step()
 
                 if (step + 1) % self.opt.valid_steps == 0:

@@ -54,27 +54,50 @@ class Trainer(BaseTrainer):
             for i, batch in enumerate(self.train_loader):
                 batch.to(device=self.device)
 
-                # Get English stats
-                en_batch_results = process_batch_update_stats(src=batch.fr, src_lengths=batch.fr_lengths,
-                                                              tgt=batch.en, tgt_lengths=batch.en_lengths,
-                                                              stats_rpt=en_train_stats, agent=self.fr_en_agent,
-                                                              criterion=self.en_criterion)
+                # Take action and translate
+                trans_en, trans_en_lengths = self._get_en_translation(batch)
+                action_logprobs, actions, action_masks = self.fr_en_agent(src=batch.fr, src_lengths=batch.fr_lengths,
+                                                                          tgt=trans_en, tgt_lengths=trans_en_lengths)
+                values, = self.value_net(src=batch.fr, src_lengths=batch.fr_lengths,
+                                         tgt=trans_en, tgt_lengths=trans_en_lengths)
 
-                # Get translated English
-                self.fr_en_agent.eval()
-                trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
-                                                                              src_lengths=batch.fr_lengths,
-                                                                              max_lengths=batch.fr_lengths)
-                self.fr_en_agent.train()
-
-                # Get Germany stats
+                # Get Germany Loss
                 de_batch_results = process_batch_update_stats(src=trans_en[:, 1:],
                                                               src_lengths=trans_en_lengths - 1,
                                                               tgt=batch.de, tgt_lengths=batch.de_lengths,
                                                               stats_rpt=de_train_stats, agent=self.en_de_agent,
                                                               criterion=self.de_criterion)
 
-                # Get Loss and backward
+                # Train en_de_agent
+                en_de_loss = de_batch_results[1]
+                avg_en_de_loss = en_de_loss / de_batch_results[0].n_words
+                self.en_de_optimizer.zero_grad()
+                avg_en_de_loss.backward()
+                self.en_de_optimizer.step()
+
+                # Train fr_en_agent
+                # [bsz]
+                rewards = self.get_rewards(de_batch_results)
+
+                # reinforce
+                # [bsz, seq_len]
+                adv = rewards.unsqueeze(-1) - values
+                pg_loss, value_loss, ent_loss = self.get_rl_loss(adv=adv,
+                                                                 logprobs=action_logprobs,
+                                                                 actions=actions,
+                                                                 action_masks=action_masks)
+                fr_en_loss = pg_loss + self.opt.v_coeff * value_loss + self.opt.ent_coeff * ent_loss
+                self.value_optimizer.zero_grad()
+                self.fr_en_optimizer.zero_grad()
+                fr_en_loss.backward()
+                self.value_optimizer.step()
+                self.fr_en_optimizer.step()
+
+                # Evaluate fr_en agent in training
+                process_batch_update_stats(src=batch.fr, src_lengths=batch.fr_lengths,
+                                           tgt=batch.en, tgt_lengths=batch.en_lengths,
+                                           stats_rpt=en_train_stats, agent=self.fr_en_agent,
+                                           criterion=self.en_criterion)
 
                 # Validate
                 if (step + 1) % self.opt.valid_steps == 0:
@@ -87,15 +110,20 @@ class Trainer(BaseTrainer):
                 # Logging and Saving
                 en_train_stats = self._report_training(step, en_train_stats, train_start,
                                                        prefix='train/en',
-                                                       learning_rate=self.fr_en_optimizer.learning_rate)
+                                                       learning_rate=self.fr_en_optimizer.learning_rate,
+                                                       rewards=rewards)
                 de_train_stats = self._report_training(step, de_train_stats, train_start,
                                                        prefix='train/de',
                                                        learning_rate=self.en_de_optimizer.learning_rate)
+
+                # Increment step
+                step += 1
 
     def validate(self, step):
         """ Validatation """
         self.fr_en_agent.eval()
         self.en_de_agent.eval()
+        self.value_net.eval()
         de_valid_stats = StatisticsReport()
         en_valid_stats = StatisticsReport()
 
@@ -166,10 +194,61 @@ class Trainer(BaseTrainer):
             ckpt_name = 'checkpoint.{}.pt'.format(step)
             ckpt_path = os.path.join(self.opt.save_dir, ckpt_name)
             torch.save(checkpoint, ckpt_path)
+
+    @staticmethod
+    def get_rewards(de_batch_results):
+        """ Compute the reward.
+            :return rewards: [bsz]
+        """
+        loss, masks = de_batch_results[2], de_batch_results[5]
+        batch_loss = torch.sum(loss * masks,  dim=-1).detach()
+        return -batch_loss
+
+    @staticmethod
+    def get_rl_loss(adv, logprobs, actions, action_masks):
+        """ Return the average policy gradient loss per action
+            :param adv: [bsz, seq_len]
+            :param logprobs: [bsz, seq_len, nb_actions]
+            :param actions: [bsz, seq_len]
+            :param action_masks: [bsz, seq_len]
+            :return pg_loss, value_loss, ent_loss
+        """
+        # Get number of actions
+        nb_actions = torch.sum(action_masks).item()
+
+        # index get policy log probs
+        # [bsz, seq_len]
+        logprobs_f = logprobs.view(-1, logprobs.size(2))
+        actions_f = actions.contiguous().view(-1, 1)
+        indexed_logprobs = logprobs_f.gather(1, actions_f).squeeze(-1)
+        policy_logprobs = indexed_logprobs.view(adv.size(0), adv.size(1))
+
+        # Get reinforce loss
+        pg_loss = -torch.sum(policy_logprobs * adv.detach() * action_masks) / nb_actions
+
+        # Get value loss
+        value_loss = torch.sum((adv * action_masks).pow(2)) / nb_actions
+
+        # Get ent loss
+        ent = torch.sum(logprobs * logprobs.exp(), dim=-1)  # [bsz, seq_len]
+        ent_loss = -torch.sum(ent * action_masks) / nb_actions
+
+        return pg_loss, value_loss, ent_loss
+
     """
     Private method
     """
-    def _report_training(self, step, train_stats, train_start, prefix, learning_rate):
+
+    def _get_en_translation(self, batch):
+        """ Return (trans_en, trans_en_lengths """
+        self.fr_en_agent.eval()
+        trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
+                                                                      src_lengths=batch.fr_lengths,
+                                                                      max_lengths=batch.fr_lengths)
+        self.fr_en_agent.train()
+        return trans_en, trans_en_lengths
+
+    def _report_training(self, step, train_stats, train_start, prefix, learning_rate, rewards=None):
         """ Report the training """
         if (step + 1) % self.opt.logging_steps == 0:
             train_stats.output(step=step,
@@ -180,6 +259,12 @@ class Trainer(BaseTrainer):
             train_stats.log_tensorboard(prefix=prefix, writer=self.writer,
                                         learning_rate=learning_rate,
                                         step=step)
+            if rewards is not None:
+                avg_rewards = torch.mean(rewards).item()
+                LOGGER.info("{} Step {}/{}; rewards: {}".format(prefix, step,
+                                                                self.opt.train_steps,
+                                                                avg_rewards))
+                self.writer.add_scalar(prefix + '/rewards', avg_rewards, step)
             train_stats = StatisticsReport()
         return train_stats
 

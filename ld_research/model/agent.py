@@ -120,9 +120,8 @@ class ValueNetwork(Model):
             :param src_lengths [bsz]
             :param tgt_lengths [bsz]
             :param with_align: Whether or not output alignments
-            :return: values, masks, alignment (depends)
+            :return: values, alignment (depends)
                 values: The value result. [bsz, tgt_len-1, 1]
-                masks: The sequence mask. [bsz, tgt_len-1]. None if tgt_lengths is None
                 alignments: The attention alignments [bsz, tgt_len-1, src_len]
         """
         states, memory = self.encoder.encode(src)
@@ -134,11 +133,7 @@ class ValueNetwork(Model):
                                                                states=states,
                                                                memory_lengths=src_lengths)
         # Get outputs
-        masks = None if tgt_lengths is None else \
-            sequence_mask(lengths=tgt_lengths - 1,
-                          max_len=values.size(1))
-        masks = masks.float().to(device=self.device)
-        outputs = [values, masks]
+        outputs = [values]
         if with_align:
             outputs += [alignments]
         return tuple(outputs)
