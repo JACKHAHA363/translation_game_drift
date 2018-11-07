@@ -100,7 +100,7 @@ class Trainer(BaseTrainer):
                                            criterion=self.en_criterion)
 
                 # Validate
-                if (step + 1) % self.opt.valid_steps == 0:
+                if step % self.opt.valid_steps == 0:
                     with torch.no_grad():
                         self.validate(step=step)
                         self.fr_en_agent.train()
@@ -250,7 +250,7 @@ class Trainer(BaseTrainer):
 
     def _report_training(self, step, train_stats, train_start, prefix, learning_rate, rewards=None):
         """ Report the training """
-        if (step + 1) % self.opt.logging_steps == 0:
+        if step % self.opt.logging_steps == 0:
             train_stats.output(step=step,
                                learning_rate=learning_rate,
                                num_steps=self.opt.train_steps,
