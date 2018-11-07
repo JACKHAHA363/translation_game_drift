@@ -1,6 +1,7 @@
 """ Data preprocessing loading utility
 """
 from os.path import join
+import torch
 
 from ld_research.settings import LOGGER, ROOT_BPE_DIR, \
     BOS_WORD, EOS_WORD, UNK_WORD
@@ -70,6 +71,8 @@ class Vocab:
 
     def denumerize(self, data):
         """ The opposite of numerize """
+        if type(data) is torch.Tensor:
+            data = data.tolist()
         if type(data) is int:
             return self.get_word(data)
         elif type(data) is list:
@@ -82,10 +85,12 @@ class Vocab:
 
     def to_sentences(self, ids, excludes=None):
         """ Get a list of list of words and exclude some of them
-            :param ids: list of list of word index (int) or list of ids
+            :param ids: list of list of word index (int) or list of ids, or tensor
             :param excludes: List of words to exclude. If None default to BOS, EOS
             :return: sentences. A list of list of str.
         """
+        if type(ids) is torch.Tensor:
+            ids = ids.tolist()
         excludes = excludes if excludes else [BOS_WORD, EOS_WORD]
         if type(ids[0]) is int:
             ids = [ids]
@@ -95,6 +100,13 @@ class Vocab:
             curr_words = [word for word in curr_words if word not in excludes]
             sentences += [curr_words]
         return sentences
+
+    def to_readable_sentences(self, ids, excludes=None):
+        """ from ids to readable list of sentences """
+        if type(ids) is torch.Tensor:
+            ids = ids.tolist()
+        sentences = self.to_sentences(ids, excludes)
+        return [' '.join(sent) for sent in sentences]
 
 
 def pad_to_same_length(sentences, pad_token=EOS_WORD,
