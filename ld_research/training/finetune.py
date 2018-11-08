@@ -46,7 +46,7 @@ class Trainer(BaseTrainer):
         self.fr_en_agent.train()
         self.en_de_agent.train()
         self.value_net.train()
-        step = self.fr_en_optimizer.curr_step + 1
+        step = self.fr_en_optimizer.curr_step
         de_train_stats = StatisticsReport()
         en_train_stats = StatisticsReport()
         train_start = time.time()
