@@ -4,7 +4,7 @@ import time
 import torch
 from torch.nn import functional as F
 import math
-from nltk.translate.bleu_score import corpus_bleu
+from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
 
 from ld_research.settings import LOGGER
 
@@ -122,8 +122,10 @@ class StatisticsReport(object):
                         'bleu_2': (0.5, 0.5, 0, 0),
                         'bleu_3': (1/3., 1/3., 1/3., 0),
                         'bleu_4': (0.25, 0.25, 0.25, 0.25)}
+        smooth_function = SmoothingFunction().method3
         scores = {name: corpus_bleu(list_of_references=references,
-                                    hypotheses=hypotheses, weights=weights) * 100
+                                    hypotheses=hypotheses, weights=weights,
+                                    smoothing_function=smooth_function) * 100
                   for name, weights in bleu_weights.items()}
         for name, score in scores.items():
             LOGGER.info('[{}] {}: {:.2f}'.format(prefix, name, score))
