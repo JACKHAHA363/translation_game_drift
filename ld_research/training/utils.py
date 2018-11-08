@@ -116,13 +116,14 @@ class StatisticsReport(object):
         writer.add_scalar(prefix + "/lr", learning_rate, step)
 
     @staticmethod
-    def report_bleu_score(references, actuals, writer, prefix, step):
+    def report_bleu_score(references, hypotheses, writer, prefix, step):
         """ Report bleu scores """
         bleu_weights = {'bleu_1': (1.0, 0, 0, 0),
                         'bleu_2': (0.5, 0.5, 0, 0),
                         'bleu_3': (1/3., 1/3., 1/3., 0),
                         'bleu_4': (0.25, 0.25, 0.25, 0.25)}
-        scores = {name: corpus_bleu(references, actuals, weights=weights) * 100
+        scores = {name: corpus_bleu(list_of_references=references,
+                                    hypotheses=hypotheses, weights=weights) * 100
                   for name, weights in bleu_weights.items()}
         for name, score in scores.items():
             LOGGER.info('[{}] {}: {:.2f}'.format(prefix, name, score))

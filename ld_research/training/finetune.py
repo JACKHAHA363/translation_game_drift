@@ -130,9 +130,9 @@ class Trainer(BaseTrainer):
         en_valid_stats = StatisticsReport()
 
         # For bleu
-        en_actuals = []
+        en_hypothese = []
         en_references = []
-        de_actuals = []
+        de_hypothese = []
         de_references = []
 
         # Start main loop
@@ -145,13 +145,13 @@ class Trainer(BaseTrainer):
                                        stats_rpt=en_valid_stats, agent=self.fr_en_agent,
                                        criterion=self.en_criterion)
 
-            ## Get translated English
-            #trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
-            #                                                              src_lengths=batch.fr_lengths,
-            #                                                              max_lengths=batch.fr_lengths,
-            #                                                              method=self.opt.sample_method)
-            #en_actuals += self.en_vocab.to_sentences(ids=trans_en.tolist())
-            #en_references += [[en_sent] for en_sent in self.en_vocab.to_sentences(ids=batch.en.tolist())]
+            # Get translated English
+            trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
+                                                                          src_lengths=batch.fr_lengths,
+                                                                          max_lengths=batch.fr_lengths,
+                                                                          method=self.opt.sample_method)
+            en_hypothese += self.en_vocab.to_sentences(trans_en)
+            en_references += [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
 
             # Get Germany stats
             process_batch_update_stats(src=batch.en[:, 1:],
@@ -160,33 +160,33 @@ class Trainer(BaseTrainer):
                                        stats_rpt=de_valid_stats, agent=self.en_de_agent,
                                        criterion=self.de_criterion)
 
-            ## Get translated Germany
-            #trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
-            #                                                              src_lengths=trans_en_lengths - 1,
-            #                                                              max_lengths=100,
-            #                                                              method=self.opt.sample_method)
-            #de_actuals += self.de_vocab.to_sentences(ids=trans_de.tolist())
-            #de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(ids=batch.de.tolist())]
+            # Get translated Germany
+            trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
+                                                                          src_lengths=trans_en_lengths - 1,
+                                                                          max_lengths=100,
+                                                                          method=self.opt.sample_method)
+            de_hypothese += self.de_vocab.to_sentences(trans_de)
+            de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
 
         # Reporting
         LOGGER.info('Eng Validation perplexity: %g' % en_valid_stats.ppl())
         LOGGER.info('Eng Validation accuracy: %g' % en_valid_stats.accuracy())
         LOGGER.info('Ger Validation perplexity: %g' % de_valid_stats.ppl())
         LOGGER.info('Ger Validation accuracy: %g' % de_valid_stats.accuracy())
-        #en_valid_stats.log_tensorboard(prefix='valid/en',
-        #                               learning_rate=self.fr_en_optimizer.learning_rate,
-        #                                step=step,
-        #                               writer=self.writer)
-        #de_valid_stats.log_tensorboard(prefix='valid/de',
-        #                               learning_rate=self.en_de_optimizer.learning_rate,
-        #                               step=step,
-        #                               writer=self.writer)
+        en_valid_stats.log_tensorboard(prefix='valid/en',
+                                       learning_rate=self.fr_en_optimizer.learning_rate,
+                                       step=step,
+                                       writer=self.writer)
+        de_valid_stats.log_tensorboard(prefix='valid/de',
+                                       learning_rate=self.en_de_optimizer.learning_rate,
+                                       step=step,
+                                       writer=self.writer)
 
         # Bleu Score
-        #en_valid_stats.report_bleu_score(en_references, en_actuals, self.writer,
-        #                                 prefix='valid/en', step=step)
-        #de_valid_stats.report_bleu_score(de_references, de_actuals, self.writer,
-        #                                 prefix='valid/de', step=step)
+        en_valid_stats.report_bleu_score(en_references, en_hypothese, self.writer,
+                                         prefix='valid/en', step=step)
+        de_valid_stats.report_bleu_score(de_references, de_hypothese, self.writer,
+                                         prefix='valid/de', step=step)
 
     def checkpoint(self, step):
         """ Maybe do the checkpoint of model """

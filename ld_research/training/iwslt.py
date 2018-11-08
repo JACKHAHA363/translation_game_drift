@@ -72,7 +72,7 @@ class Trainer(BaseTrainer):
         """ Validatation """
         self.agent.eval()
         valid_stats = StatisticsReport()
-        actuals = []
+        hypothese = []
         references = []
         for batch in self.valid_loader:
             batch.to(device=self.device)
@@ -87,8 +87,8 @@ class Trainer(BaseTrainer):
                                                              batch.src_lengths,
                                                              max_lengths=100,
                                                              method=self.opt.sample_method)
-            actuals += self.tgt_vocab.to_sentences(preds.tolist())
-            references += [[tgt_sent] for tgt_sent in self.tgt_vocab.to_sentences(batch.tgt.tolist())]
+            hypothese += self.tgt_vocab.to_sentences(preds)
+            references += [[tgt_sent] for tgt_sent in self.tgt_vocab.to_sentences(batch.tgt)]
 
         # Reporting
         LOGGER.info('Validation perplexity: %g' % valid_stats.ppl())
@@ -98,7 +98,7 @@ class Trainer(BaseTrainer):
                                     step=step,
                                     writer=self.writer)
         LOGGER.info('Compute BLEU Score...')
-        valid_stats.report_bleu_score(references, actuals, self.writer,
+        valid_stats.report_bleu_score(references, hypothese, self.writer,
                                       prefix='valid', step=step)
 
     def _build_data_loaders(self):
