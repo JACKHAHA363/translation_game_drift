@@ -52,6 +52,16 @@ class Trainer(BaseTrainer):
         train_start = time.time()
         while step <= self.opt.train_steps:
             for i, batch in enumerate(self.train_loader):
+
+                # Validate
+                if step % self.opt.valid_steps == 0:
+                    with torch.no_grad():
+                        self.validate(step=step)
+                        self.fr_en_agent.train()
+                        self.en_de_agent.train()
+                        self.value_net.train()
+
+                # Get Training batch
                 batch.to(device=self.device)
 
                 # Take action and translate
@@ -98,14 +108,6 @@ class Trainer(BaseTrainer):
                                            tgt=batch.en, tgt_lengths=batch.en_lengths,
                                            stats_rpt=en_train_stats, agent=self.fr_en_agent,
                                            criterion=self.en_criterion)
-
-                # Validate
-                if step % self.opt.valid_steps == 0:
-                    with torch.no_grad():
-                        self.validate(step=step)
-                        self.fr_en_agent.train()
-                        self.en_de_agent.train()
-                        self.value_net.train()
 
                 # Logging and Saving
                 en_train_stats = self._report_training(step, en_train_stats, train_start,
@@ -308,8 +310,8 @@ class Trainer(BaseTrainer):
         else:
             self._initialize_agent(self.agents[AgentType.FR_EN],
                                    self.opt.pretrain_fr_en_ckpt)
-            self._initialize_agent(self.agents[AgentType.FR_EN],
-                                   self.opt.pretrain_fr_en_ckpt)
+            self._initialize_agent(self.agents[AgentType.EN_DE],
+                                   self.opt.pretrain_en_de_ckpt)
             self._initialize_agent(self.agents[AgentType.VALUE])
 
         for agent_type in ALL_TYPES:
