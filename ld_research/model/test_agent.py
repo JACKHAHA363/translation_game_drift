@@ -148,6 +148,7 @@ def test_agent():
     opt = argparse.Namespace
     opt.emb_size = 256
     opt.hidden_size = 256
+    opt.dropout = 0.1
     agent = Agent(src_vocab, tgt_vocab, opt)
 
     # Test dataset
@@ -173,6 +174,7 @@ def test_value_agent():
     opt = argparse.Namespace
     opt.value_emb_size = 256
     opt.value_hidden_size = 256
+    opt.dropout = 0.1
     agent = ValueNetwork(src_vocab, tgt_vocab, opt)
 
     # Test dataset
