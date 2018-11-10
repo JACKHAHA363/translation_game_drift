@@ -247,7 +247,9 @@ class Trainer(BaseTrainer):
         policy_logprobs = indexed_logprobs.view(adv.size(0), adv.size(1))
 
         # Get reinforce loss
-        pg_loss = -torch.sum(policy_logprobs * adv.detach() * action_masks) / nb_actions
+        detach_adv = adv.detach()
+        normalized_adv = (detach_adv - detach_adv.mean()) / detach_adv.std()
+        pg_loss = -torch.sum(policy_logprobs * normalized_adv * action_masks) / nb_actions
 
         # Get value loss
         value_loss = torch.sum((adv * action_masks).pow(2)) / nb_actions
