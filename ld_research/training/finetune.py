@@ -123,6 +123,23 @@ class Trainer(BaseTrainer):
                 if step > self.opt.train_steps:
                     break
 
+                # Get train BLEU
+                if step % self.opt.logging_steps == 0:
+                    self.en_de_agent.eval()
+                    trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
+                                                                                  src_lengths=trans_en_lengths - 1,
+                                                                                  max_lengths=100,
+                                                                                  method=self.opt.sample_method)
+                    self.en_de_agent.train()
+                    en_hypothese = self.en_vocab.to_sentences(trans_en)
+                    en_references = [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
+                    de_hypothese = self.de_vocab.to_sentences(trans_de)
+                    de_references = [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
+                    en_train_stats.report_bleu_score(en_references, en_hypothese, self.writer,
+                                                     prefix='train/en', step=step)
+                    de_train_stats.report_bleu_score(de_references, de_hypothese, self.writer,
+                                                     prefix='train/de', step=step)
+
     def validate(self, step):
         """ Validatation """
         self.fr_en_agent.eval()
@@ -141,7 +158,7 @@ class Trainer(BaseTrainer):
         for batch in self.valid_loader:
             batch.to(device=self.device)
 
-            ## Get English stats
+            # Get English stats
             process_batch_update_stats(src=batch.fr, src_lengths=batch.fr_lengths,
                                        tgt=batch.en, tgt_lengths=batch.en_lengths,
                                        stats_rpt=en_valid_stats, agent=self.fr_en_agent,
