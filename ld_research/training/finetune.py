@@ -147,6 +147,13 @@ class Trainer(BaseTrainer):
                     de_train_stats.report_bleu_score(de_references, de_hypothese, self.writer,
                                                      prefix='train/de', step=step)
 
+                    # Logging the length
+                    avg_de_lengths = trans_de_lengths.float().mean().item()
+                    self.writer.add_scalar('train/trans_de_length',
+                                           avg_de_lengths,
+                                           global_step=step)
+                    LOGGER.info('[train/de] de_lengths: {}'.format(avg_de_lengths))
+
     def validate(self, step):
         """ Validatation """
         self.fr_en_agent.eval()
@@ -213,6 +220,13 @@ class Trainer(BaseTrainer):
                                          prefix='valid/en', step=step)
         de_valid_stats.report_bleu_score(de_references, de_hypothese, self.writer,
                                          prefix='valid/de', step=step)
+
+        # Logging the length
+        avg_de_lengths = sum([len(sent) for sent in de_hypothese]) / float(len(de_hypothese))
+        self.writer.add_scalar('valid/trans_de_length',
+                               avg_de_lengths,
+                               global_step=step)
+        LOGGER.info('De Validation Lengths: %g' % avg_de_lengths)
 
     def checkpoint(self, step):
         """ Maybe do the checkpoint of model """

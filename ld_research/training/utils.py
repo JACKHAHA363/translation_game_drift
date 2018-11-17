@@ -128,7 +128,7 @@ class StatisticsReport(object):
                                     smoothing_function=smooth_function) * 100
                   for name, weights in bleu_weights.items()}
         for name, score in scores.items():
-            LOGGER.info('[{}] {}: {:.2f}'.format(prefix, name, score))
+            LOGGER.info('[{}/{}] {}: {:.2f}'.format(prefix, name, step, score))
             writer.add_scalar('{}/{}'.format(prefix, name), score, step)
 
 
