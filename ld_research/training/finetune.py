@@ -65,7 +65,10 @@ class Trainer(BaseTrainer):
                 batch.to(device=self.device)
 
                 # Take action and translate
-                trans_en, trans_en_lengths = self._get_en_translation(batch)
+                trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
+                                                                              src_lengths=batch.fr_lengths,
+                                                                              max_lengths=batch.fr_lengths,
+                                                                              method=self.opt.sample_method)
                 action_logprobs, actions, action_masks = self.fr_en_agent(src=batch.fr, src_lengths=batch.fr_lengths,
                                                                           tgt=trans_en, tgt_lengths=trans_en_lengths)
                 values = self.value_net(src=batch.fr, src_lengths=batch.fr_lengths,
@@ -173,8 +176,8 @@ class Trainer(BaseTrainer):
             en_references += [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
 
             # Get Germany stats
-            process_batch_update_stats(src=batch.en[:, 1:],
-                                       src_lengths=batch.en_lengths - 1,
+            process_batch_update_stats(src=trans_en[:, 1:],
+                                       src_lengths=trans_en_lengths - 1,
                                        tgt=batch.de, tgt_lengths=batch.de_lengths,
                                        stats_rpt=de_valid_stats, agent=self.en_de_agent,
                                        criterion=self.de_criterion)
@@ -186,6 +189,7 @@ class Trainer(BaseTrainer):
                                                                           method=self.opt.sample_method)
             de_hypothese += self.de_vocab.to_sentences(trans_de)
             de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
+            break
 
         # Reporting
         LOGGER.info('Eng Validation perplexity: %g' % en_valid_stats.ppl())
@@ -224,8 +228,9 @@ class Trainer(BaseTrainer):
             :return rewards: [bsz]
         """
         loss, masks = de_batch_results[2], de_batch_results[5]
-        batch_loss = torch.sum(loss * masks,  dim=-1).detach()
-        return -batch_loss
+        rewards = -torch.sum(loss * masks,  dim=-1).detach()
+        rewards = (rewards - rewards.mean()) / rewards.std()
+        return rewards
 
     @staticmethod
     def get_rl_loss(adv, logprobs, actions, action_masks):
@@ -248,8 +253,8 @@ class Trainer(BaseTrainer):
 
         # Get reinforce loss
         detach_adv = adv.detach()
-        normalized_adv = (detach_adv - detach_adv.mean()) / detach_adv.std()
-        pg_loss = -torch.sum(policy_logprobs * normalized_adv * action_masks) / nb_actions
+        #detach_adv = (detach_adv - detach_adv.mean()) / detach_adv.std()
+        pg_loss = -torch.sum(policy_logprobs * detach_adv * action_masks) / nb_actions
 
         # Get value loss
         value_loss = torch.sum((adv * action_masks).pow(2)) / nb_actions
@@ -263,16 +268,6 @@ class Trainer(BaseTrainer):
     """
     Private method
     """
-
-    def _get_en_translation(self, batch):
-        """ Return (trans_en, trans_en_lengths """
-        self.fr_en_agent.eval()
-        trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
-                                                                      src_lengths=batch.fr_lengths,
-                                                                      max_lengths=batch.fr_lengths,
-                                                                      method=self.opt.sample_method)
-        self.fr_en_agent.train()
-        return trans_en, trans_en_lengths
 
     def _report_training(self, step, train_stats, train_start, prefix, learning_rate, rewards=None):
         """ Report the training """
@@ -298,8 +293,8 @@ class Trainer(BaseTrainer):
         """ Build datasets """
 
         if self.opt.debug:
-            LOGGER.info('Debug mode, overfit on test data...')
-            train_set = Multi30KDataset('test')
+            LOGGER.info('Debug mode, overfit on valid data...')
+            train_set = Multi30KDataset('valid')
         else:
             train_set = Multi30KDataset('train')
         valid_set = Multi30KDataset('valid')
