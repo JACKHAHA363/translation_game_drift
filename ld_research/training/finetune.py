@@ -65,10 +65,14 @@ class Trainer(BaseTrainer):
                 batch.to(device=self.device)
 
                 # Take action and translate
+                self.fr_en_agent.eval()
                 trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
                                                                               src_lengths=batch.fr_lengths,
                                                                               max_lengths=batch.fr_lengths,
                                                                               method=self.opt.sample_method)
+
+                # Get log-probs
+                self.fr_en_agent.train()
                 action_logprobs, actions, action_masks = self.fr_en_agent(src=batch.fr, src_lengths=batch.fr_lengths,
                                                                           tgt=trans_en, tgt_lengths=trans_en_lengths)
                 values = self.value_net(src=batch.fr, src_lengths=batch.fr_lengths,
@@ -189,7 +193,6 @@ class Trainer(BaseTrainer):
                                                                           method=self.opt.sample_method)
             de_hypothese += self.de_vocab.to_sentences(trans_de)
             de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
-            break
 
         # Reporting
         LOGGER.info('Eng Validation perplexity: %g' % en_valid_stats.ppl())
@@ -253,7 +256,7 @@ class Trainer(BaseTrainer):
 
         # Get reinforce loss
         detach_adv = adv.detach()
-        #detach_adv = (detach_adv - detach_adv.mean()) / detach_adv.std()
+        detach_adv = (detach_adv - detach_adv.mean()) / detach_adv.std()
         pg_loss = -torch.sum(policy_logprobs * detach_adv * action_masks) / nb_actions
 
         # Get value loss

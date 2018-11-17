@@ -118,9 +118,9 @@ class StatisticsReport(object):
     @staticmethod
     def report_bleu_score(references, hypotheses, writer, prefix, step):
         """ Report bleu scores """
-        bleu_weights = {'bleu_1': (1.0, 0, 0, 0),
-                        'bleu_2': (0.5, 0.5, 0, 0),
-                        'bleu_3': (1/3., 1/3., 1/3., 0),
+        bleu_weights = {#'bleu_1': (1.0, 0, 0, 0),
+                        #'bleu_2': (0.5, 0.5, 0, 0),
+                        #'bleu_3': (1/3., 1/3., 1/3., 0),
                         'bleu_4': (0.25, 0.25, 0.25, 0.25)}
         smooth_function = SmoothingFunction().method3
         scores = {name: corpus_bleu(list_of_references=references,

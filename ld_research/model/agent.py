@@ -113,9 +113,9 @@ class ValueNetwork(Model):
         self.add_module('tgt_emb', torch.nn.Embedding(len(tgt_vocab),
                                                       opt.value_emb_size))
         self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.value_hidden_size,
-                                              dropout=opt.dropout))
+                                              dropout=0.))
         self.add_module('value_decoder', GRUValueDecoder(self.tgt_emb, hidden_size=opt.value_hidden_size,
-                                                         dropout=opt.dropout))
+                                                         dropout=0.))
 
     def forward(self, src, tgt, src_lengths=None, tgt_lengths=None):
         """ Get values
