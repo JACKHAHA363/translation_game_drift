@@ -85,11 +85,17 @@ class Trainer(BaseTrainer):
                     LOGGER.info('[train/de] {}/{} de_lengths: {}'.format(step, self.opt.train_steps,
                                                                          avg_de_lengths))
 
-                    # Print out sentence
+                    # Print out DE sentence
                     true_de_sent_sample = self.de_vocab.to_readable_sentences(batch.de[0])
                     tran_de_sent_sample = self.de_vocab.to_readable_sentences(trans_de[0])
                     LOGGER.info('True De: {}'.format(true_de_sent_sample))
                     LOGGER.info('Tran De: {}'.format(tran_de_sent_sample))
+
+                    # Print out ENG sentence
+                    true_en_sent_sample = self.en_vocab.to_readable_sentences(batch.en[0])
+                    tran_en_sent_sample = self.en_vocab.to_readable_sentences(trans_en[0])
+                    LOGGER.info('True En: {}'.format(true_en_sent_sample))
+                    LOGGER.info('Tran En: {}'.format(tran_en_sent_sample))
 
                 # Training
                 self.fr_en_agent.train()
@@ -286,7 +292,7 @@ class Trainer(BaseTrainer):
         # Get translated Germany
         trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
                                                                       src_lengths=trans_en_lengths - 1,
-                                                                      max_lengths=100,
+                                                                      max_lengths=batch.de_lengths,
                                                                       method=self.opt.sample_method)
         return trans_en, trans_en_lengths, trans_de, trans_de_lengths
 
