@@ -287,12 +287,12 @@ class Trainer(BaseTrainer):
         # Get translated English
         trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
                                                                       src_lengths=batch.fr_lengths,
-                                                                      max_lengths=batch.fr_lengths,
+                                                                      max_lengths=batch.en_lengths,
                                                                       method=self.opt.sample_method)
         # Get translated Germany
         trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
                                                                       src_lengths=trans_en_lengths - 1,
-                                                                      max_lengths=batch.de_lengths,
+                                                                      max_lengths=100,
                                                                       method=self.opt.sample_method)
         return trans_en, trans_en_lengths, trans_de, trans_de_lengths
 
