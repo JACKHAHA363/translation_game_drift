@@ -2,9 +2,17 @@
 """
 from os.path import join
 import torch
+import codecs
 
+from bpe_tools.apply_bpe import BPE
 from ld_research.settings import LOGGER, ROOT_BPE_DIR, \
     BOS_WORD, EOS_WORD, UNK_WORD
+
+
+def get_bpe_object():
+    """ Return the BPE object """
+    bpe_code_path = join(ROOT_BPE_DIR, 'bpe.codes')
+    return BPE(codecs.open(bpe_code_path, encoding='utf-8'))
 
 
 def get_vocab_file(lang):
