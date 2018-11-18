@@ -57,26 +57,43 @@ class Trainer(BaseTrainer):
                 if step % self.opt.valid_steps == 0:
                     with torch.no_grad():
                         self.validate(step=step)
-                        self.fr_en_agent.train()
-                        self.en_de_agent.train()
-                        self.value_net.train()
 
                 # Get Training batch
                 batch.to(device=self.device)
 
-                # Take action and translate
+                # Communicate and get translation
                 self.fr_en_agent.eval()
-                trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
-                                                                              src_lengths=batch.fr_lengths,
-                                                                              max_lengths=batch.fr_lengths,
-                                                                              method=self.opt.sample_method)
+                self.en_de_agent.eval()
+                trans_en, trans_en_lengths, trans_de, trans_de_lengths = self.communicate(batch)
 
-                # Get log-probs
+                # Logging train communication
+                if step % self.opt.logging_steps == 0:
+                    en_hypothese = self.en_vocab.to_sentences(trans_en)
+                    en_references = [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
+                    de_hypothese = self.de_vocab.to_sentences(trans_de)
+                    de_references = [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
+                    en_train_stats.report_bleu_score(en_references, en_hypothese, self.writer,
+                                                     prefix='train/en', step=step)
+                    de_train_stats.report_bleu_score(de_references, de_hypothese, self.writer,
+                                                     prefix='train/de', step=step)
+
+                    # Logging the length
+                    avg_de_lengths = trans_de_lengths.float().mean().item()
+                    self.writer.add_scalar('train/trans_de_length',
+                                           avg_de_lengths,
+                                           global_step=step)
+                    LOGGER.info('[train/de] {}/{} de_lengths: {}'.format(step, self.opt.train_steps,
+                                                                         avg_de_lengths))
+
+                    # Print out sentence
+                    true_de_sent_sample = self.de_vocab.to_readable_sentences(batch.de[0])
+                    tran_de_sent_sample = self.de_vocab.to_readable_sentences(trans_de[0])
+                    LOGGER.info('True De: {}'.format(true_de_sent_sample))
+                    LOGGER.info('Tran De: {}'.format(tran_de_sent_sample))
+
+                # Training
                 self.fr_en_agent.train()
-                action_logprobs, actions, action_masks = self.fr_en_agent(src=batch.fr, src_lengths=batch.fr_lengths,
-                                                                          tgt=trans_en, tgt_lengths=trans_en_lengths)
-                values = self.value_net(src=batch.fr, src_lengths=batch.fr_lengths,
-                                        tgt=trans_en, tgt_lengths=trans_en_lengths)
+                self.en_de_agent.train()
 
                 # Get Germany Loss
                 de_batch_results = process_batch_update_stats(src=trans_en[:, 1:],
@@ -85,12 +102,24 @@ class Trainer(BaseTrainer):
                                                               stats_rpt=de_train_stats, agent=self.en_de_agent,
                                                               criterion=self.de_criterion)
 
+                # Evaluate fr_en agent in training
+                process_batch_update_stats(src=batch.fr, src_lengths=batch.fr_lengths,
+                                           tgt=batch.en, tgt_lengths=batch.en_lengths,
+                                           stats_rpt=en_train_stats, agent=self.fr_en_agent,
+                                           criterion=self.en_criterion)
+
                 # Train en_de_agent
                 en_de_loss = de_batch_results[1]
                 avg_en_de_loss = en_de_loss / de_batch_results[0].n_words
                 self.en_de_optimizer.zero_grad()
                 avg_en_de_loss.backward()
                 self.en_de_optimizer.step()
+
+                # Get log-probs
+                action_logprobs, actions, action_masks = self.fr_en_agent(src=batch.fr, src_lengths=batch.fr_lengths,
+                                                                          tgt=trans_en, tgt_lengths=trans_en_lengths)
+                values = self.value_net(src=batch.fr, src_lengths=batch.fr_lengths,
+                                        tgt=trans_en, tgt_lengths=trans_en_lengths)
 
                 # Train fr_en_agent
                 # [bsz]
@@ -110,17 +139,10 @@ class Trainer(BaseTrainer):
                 self.value_optimizer.step()
                 self.fr_en_optimizer.step()
 
-                # Evaluate fr_en agent in training
-                process_batch_update_stats(src=batch.fr, src_lengths=batch.fr_lengths,
-                                           tgt=batch.en, tgt_lengths=batch.en_lengths,
-                                           stats_rpt=en_train_stats, agent=self.fr_en_agent,
-                                           criterion=self.en_criterion)
-
                 # Logging and Saving
                 en_train_stats = self._report_training(step, en_train_stats, train_start,
                                                        prefix='train/en',
-                                                       learning_rate=self.fr_en_optimizer.learning_rate,
-                                                       rewards=rewards)
+                                                       learning_rate=self.fr_en_optimizer.learning_rate)
                 de_train_stats = self._report_training(step, de_train_stats, train_start,
                                                        prefix='train/de',
                                                        learning_rate=self.en_de_optimizer.learning_rate)
@@ -130,35 +152,10 @@ class Trainer(BaseTrainer):
                 if step > self.opt.train_steps:
                     break
 
-                # Get train BLEU
-                if step % self.opt.logging_steps == 0:
-                    self.en_de_agent.eval()
-                    trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
-                                                                                  src_lengths=trans_en_lengths - 1,
-                                                                                  max_lengths=100,
-                                                                                  method=self.opt.sample_method)
-                    self.en_de_agent.train()
-                    en_hypothese = self.en_vocab.to_sentences(trans_en)
-                    en_references = [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
-                    de_hypothese = self.de_vocab.to_sentences(trans_de)
-                    de_references = [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
-                    en_train_stats.report_bleu_score(en_references, en_hypothese, self.writer,
-                                                     prefix='train/en', step=step)
-                    de_train_stats.report_bleu_score(de_references, de_hypothese, self.writer,
-                                                     prefix='train/de', step=step)
-
-                    # Logging the length
-                    avg_de_lengths = trans_de_lengths.float().mean().item()
-                    self.writer.add_scalar('train/trans_de_length',
-                                           avg_de_lengths,
-                                           global_step=step)
-                    LOGGER.info('[train/de] de_lengths: {}'.format(avg_de_lengths))
-
     def validate(self, step):
         """ Validatation """
         self.fr_en_agent.eval()
         self.en_de_agent.eval()
-        self.value_net.eval()
         de_valid_stats = StatisticsReport()
         en_valid_stats = StatisticsReport()
 
@@ -172,19 +169,18 @@ class Trainer(BaseTrainer):
         for batch in self.valid_loader:
             batch.to(device=self.device)
 
+            # Communicate and get translation
+            trans_en, trans_en_lengths, trans_de, trans_de_lengths = self.communicate(batch)
+            en_hypothese += self.en_vocab.to_sentences(trans_en)
+            en_references += [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
+            de_hypothese += self.de_vocab.to_sentences(trans_de)
+            de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
+
             # Get English stats
             process_batch_update_stats(src=batch.fr, src_lengths=batch.fr_lengths,
                                        tgt=batch.en, tgt_lengths=batch.en_lengths,
                                        stats_rpt=en_valid_stats, agent=self.fr_en_agent,
                                        criterion=self.en_criterion)
-
-            # Get translated English
-            trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
-                                                                          src_lengths=batch.fr_lengths,
-                                                                          max_lengths=batch.fr_lengths,
-                                                                          method=self.opt.sample_method)
-            en_hypothese += self.en_vocab.to_sentences(trans_en)
-            en_references += [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
 
             # Get Germany stats
             process_batch_update_stats(src=trans_en[:, 1:],
@@ -193,18 +189,8 @@ class Trainer(BaseTrainer):
                                        stats_rpt=de_valid_stats, agent=self.en_de_agent,
                                        criterion=self.de_criterion)
 
-            # Get translated Germany
-            trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
-                                                                          src_lengths=trans_en_lengths - 1,
-                                                                          max_lengths=100,
-                                                                          method=self.opt.sample_method)
-            de_hypothese += self.de_vocab.to_sentences(trans_de)
-            de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
-
         # Reporting
-        LOGGER.info('Eng Validation perplexity: %g' % en_valid_stats.ppl())
         LOGGER.info('Eng Validation accuracy: %g' % en_valid_stats.accuracy())
-        LOGGER.info('Ger Validation perplexity: %g' % de_valid_stats.ppl())
         LOGGER.info('Ger Validation accuracy: %g' % de_valid_stats.accuracy())
         en_valid_stats.log_tensorboard(prefix='valid/en',
                                        learning_rate=self.fr_en_optimizer.learning_rate,
@@ -227,6 +213,10 @@ class Trainer(BaseTrainer):
                                avg_de_lengths,
                                global_step=step)
         LOGGER.info('De Validation Lengths: %g' % avg_de_lengths)
+
+        # Restore to train
+        self.fr_en_agent.train()
+        self.en_de_agent.train()
 
     def checkpoint(self, step):
         """ Maybe do the checkpoint of model """
@@ -281,6 +271,24 @@ class Trainer(BaseTrainer):
         ent_loss = -torch.sum(ent * action_masks) / nb_actions
 
         return pg_loss, value_loss, ent_loss
+
+    def communicate(self, batch):
+        """ From a batch. Translate from French to Germany
+            return: trans_en, trans_en_lengths, trans_de, trans_de_lengths
+        """
+        batch.to(device=self.device)
+
+        # Get translated English
+        trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
+                                                                      src_lengths=batch.fr_lengths,
+                                                                      max_lengths=batch.fr_lengths,
+                                                                      method=self.opt.sample_method)
+        # Get translated Germany
+        trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
+                                                                      src_lengths=trans_en_lengths - 1,
+                                                                      max_lengths=100,
+                                                                      method=self.opt.sample_method)
+        return trans_en, trans_en_lengths, trans_de, trans_de_lengths
 
     """
     Private method
