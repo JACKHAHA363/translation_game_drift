@@ -153,6 +153,9 @@ class Trainer(BaseTrainer):
                                                        prefix='train/de',
                                                        learning_rate=self.en_de_optimizer.learning_rate)
 
+                # Checkpoint
+                self.checkpoint(step)
+
                 # Increment step
                 step += 1
                 if step > self.opt.train_steps:

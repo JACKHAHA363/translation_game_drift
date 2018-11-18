@@ -8,7 +8,24 @@ import matplotlib.pyplot as plt
 from ld_research.settings import FR, EN, BOS_WORD, EOS_WORD, UNK_WORD
 from ld_research.text import Vocab, IWSLTDataset, IWSLTDataloader
 from ld_research.model import Agent
+from ld_research.training.finetune import AgentType
 from ld_research.model.utils import sequence_mask
+
+
+def get_agent_state_dict(ckpt_path):
+    """ Get agent state_dict from either checkpoint """
+    ckpt = torch.load(ckpt_path,
+                      map_location=lambda storage, loc: storage)
+    model_state_dict = ckpt.get('agent')
+
+    # Get from finetune
+    if model_state_dict is None:
+        model_state_dict = ckpt.get(AgentType.FR_EN).get('agent_state_dict')
+
+    if model_state_dict is None:
+        raise ValueError('Something wrong with checkpoint')
+
+    return model_state_dict
 
 
 def get_args():
@@ -24,11 +41,9 @@ def get_args():
 if __name__ == '__main__':
     # Main loop
     args = get_args()
-    ckpt = torch.load(args.ckpt_path,
-                      map_location=lambda storage, loc: storage)
-    model_state_dict = ckpt['agent']
     fr_vocab = Vocab(FR)
     en_vocab = Vocab(EN)
+    model_state_dict = get_agent_state_dict(args.ckpt_path)
     opt = argparse.Namespace
     opt.emb_size = 256
     opt.hidden_size = 256
@@ -73,13 +88,3 @@ if __name__ == '__main__':
     # Plot this
     plt.plot(np.log(np.arange(0, len(en_vocab))), freq_diff_np / 1000)
     plt.show()
-
-
-
-
-
-
-
-
-
-
