@@ -4,6 +4,7 @@ from torch import nn
 import torch
 from torch.nn import functional as F
 
+
 def sequence_mask(lengths, max_len=None):
     """
     Creates a boolean mask from sequence lengths.
@@ -14,6 +15,7 @@ def sequence_mask(lengths, max_len=None):
             .type_as(lengths)
             .repeat(batch_size, 1)
             .lt(lengths.unsqueeze(1)))
+
 
 class GlobalAttention(nn.Module):
     """ Adapted from openNMT-py
