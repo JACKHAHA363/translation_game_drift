@@ -254,9 +254,6 @@ class Trainer(BaseTrainer):
             :param action_masks: [bsz, seq_len]
             :return pg_loss, value_loss, ent_loss
         """
-        # Get number of actions
-        nb_actions = torch.sum(action_masks).item()
-
         # index get policy log probs
         # [bsz, seq_len]
         logprobs_f = logprobs.view(-1, logprobs.size(2))
@@ -266,16 +263,17 @@ class Trainer(BaseTrainer):
 
         # Get reinforce loss
         detach_adv = adv.detach()
+        detach_adv = torch.masked_select(detach_adv, mask=action_masks.byte())
         detach_adv = (detach_adv - detach_adv.mean()) / detach_adv.std()
-        pg_loss = -torch.sum(policy_logprobs * detach_adv * action_masks) / nb_actions
+        policy_logprobs = torch.masked_select(policy_logprobs, mask=action_masks.byte())
+        pg_loss = -torch.mean(policy_logprobs * detach_adv)
 
         # Get value loss
-        value_loss = torch.sum((adv * action_masks).pow(2)) / nb_actions
+        value_loss = adv.masked_select(action_masks.byte()).pow(2).mean()
 
         # Get ent loss
         ent = torch.sum(logprobs * logprobs.exp(), dim=-1)  # [bsz, seq_len]
-        ent_loss = -torch.sum(ent * action_masks) / nb_actions
-
+        ent_loss = -ent.masked_select(action_masks.byte()).mean()
         return pg_loss, value_loss, ent_loss
 
     def communicate(self, batch):
