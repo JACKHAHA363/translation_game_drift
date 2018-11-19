@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from ld_research.model.grus import GRUDecoder, GRUEncoder, GRUValueDecoder
 from ld_research.text import Vocab
 from ld_research.model.utils import sequence_mask
-from ld_research.settings import BOS_WORD, EOS_WORD
+from ld_research.settings import BOS_WORD, EOS_WORD, EN
 
 
 class Model(torch.nn.Module):
@@ -135,3 +135,56 @@ class ValueNetwork(Model):
                                     memory_lengths=src_lengths)
         # Get outputs
         return values
+
+
+class LanguageModel(Model):
+    """ interface of language model """
+    # Fixed config
+    emb_size = 256
+    hidden_size = 256
+    dropout_rate = 0.1
+
+    def __init__(self):
+        """ constructor """
+        super(LanguageModel, self).__init__()
+        self.vocab = Vocab(EN)
+        self.emb = torch.nn.Embedding(len(self.vocab), self.emb_size)
+        self.gru = torch.nn.GRU(input_size=self.emb.embedding_dim,
+                                hidden_size=self.hidden_size,
+                                num_layers=1,
+                                dropout=self.dropout_rate,
+                                batch_first=True)
+        self.init_state = torch.nn.Parameter(torch.zeros(1, self.hidden_size))
+        self.dropout = torch.nn.Dropout(p=self.dropout_rate)
+        self.linear_out = torch.nn.Linear(self.hidden_size,
+                                          self.emb.num_embeddings,
+                                          bias=True)
+
+    def forward(self, en, en_lengths=None):
+        """ Given a batch of en, doing teacher forcing on it
+            :param en: [bsz, len]
+            :param en_lengths: [bsz]
+            :return logprobs, targets, masks
+        """
+        # [bsz, len - 1]
+        en_in = en[:, :-1]
+        en_out = en[:, 1:]
+        masks = sequence_mask(lengths=en_lengths - 1,
+                              max_len=en.size(1) - 1)
+        masks = masks.float().to(device=self.device)
+
+        # [bsz, len, emb_size]
+        en_emb = self.emb(en_in)
+
+        # [1, bsz, hidden_size]
+        init_states = self.init_state.expand(en.size(0),
+                                             self.hidden_size).unsqueeze(0)
+        context, _ = self.gru(en_emb, init_states)
+        context = self.dropout(context)
+
+        # Logits
+        logits = self.linear_out(context.view(-1, self.hidden_size))
+        logits = logits.view(en_in.size(0), en_in.size(1),
+                             self.emb.num_embeddings)
+        logprobs = F.log_softmax(logits, dim=-1)
+        return logprobs, en_out, masks

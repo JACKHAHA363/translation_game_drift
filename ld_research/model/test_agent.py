@@ -3,9 +3,9 @@
 import torch
 import argparse
 from ld_research.model.grus import GRUDecoder, GRUEncoder
-from ld_research.model import Agent, ValueNetwork
+from ld_research.model import Agent, ValueNetwork, LanguageModel
 from ld_research.settings import FR, EN
-from ld_research.text import Vocab, IWSLTDataloader, IWSLTDataset
+from ld_research.text import Vocab, IWSLTDataloader, IWSLTDataset, Multi30KDataset, Multi30KLoader
 
 # Some config
 VOCAB_SIZE = 500
@@ -17,11 +17,13 @@ TGT_SEQ_LEN = 5
 SRC_LANG = FR
 TGT_LANG = EN
 
+
 def _prepare_batch(seq_len):
     """ Get a batch of fake data """
     fakedata = torch.randint(high=VOCAB_SIZE, size=[BATCH_SIZE, seq_len],
                              dtype=torch.int64)
     return fakedata
+
 
 def test_encoder():
     """ Test encoder """
@@ -36,6 +38,7 @@ def test_encoder():
     assert memory_bank.size(0) == BATCH_SIZE
     assert memory_bank.size(1) == SEQ_LEN
     assert memory_bank.size(2) == HIDDEN_SIZE
+
 
 def test_decoder_tf():
     """ Test teacher forcing """
@@ -55,6 +58,7 @@ def test_decoder_tf():
     assert alignments.size(0) == BATCH_SIZE
     assert alignments.size(1) == TGT_SEQ_LEN
     assert alignments.size(2) == SEQ_LEN
+
 
 def test_decoder_greedy():
     """ Test greedy """
@@ -188,3 +192,18 @@ def test_value_agent():
                            batch.src_lengths,
                            batch.tgt_lengths)
     assert list(values.size()) == [BATCH_SIZE, batch.tgt.size(1) - 1]
+
+
+def test_language_model():
+    """ test agent """
+    lm = LanguageModel()
+
+    # Test dataset
+    dataloader = Multi30KLoader(Multi30KDataset('test'), batch_size=BATCH_SIZE, shuffle=True)
+    batch = next(iter(dataloader))
+
+    en, en_lengths = batch.en, batch.en_lengths
+    logprobs, targets, masks = lm.forward(en=en, en_lengths=en_lengths)
+    assert logprobs.size(0) == BATCH_SIZE
+    assert logprobs.size(1) == en.size(1) - 1
+    assert logprobs.size(2) == len(lm.vocab)
