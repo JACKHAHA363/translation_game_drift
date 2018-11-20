@@ -56,7 +56,7 @@ class Trainer(BaseTrainer):
                 # Validate
                 if step % self.opt.valid_steps == 0:
                     with torch.no_grad():
-                        #self.validate(step=step)
+                        self.validate(step=step)
                         pass
 
                 # Get Training batch
