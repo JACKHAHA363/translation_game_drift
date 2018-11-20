@@ -188,3 +188,17 @@ class LanguageModel(Model):
                              self.emb.num_embeddings)
         logprobs = F.log_softmax(logits, dim=-1)
         return logprobs, en_out, masks
+
+    def get_lm_reward(self, en, en_lengths):
+        """ Give reward of englishness
+            :param en: [bsz, len]
+            :param en_lengths: [bsz]
+            :return: rewards [bsz] (detach)
+        """
+        logprobs, en_out, masks = self.forward(en, en_lengths)
+        ce_losses = F.cross_entropy(input=logprobs.view(-1, logprobs.size(2)),
+                                    target=en_out.contiguous().view(-1),
+                                    reduction='none')
+        rewards = -ce_losses.detach().view(masks.size(0), masks.size(1))
+        rewards = torch.sum(rewards * masks, dim=-1)
+        return rewards
