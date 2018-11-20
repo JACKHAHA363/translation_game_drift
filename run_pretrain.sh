@@ -29,10 +29,25 @@ echo ${GIT_COMMIT}
 #	-save_dir $SAVE_DIR
 #
 
-SAVE_DIR=${LANGUAGE_DRIFT}/pretrain_en_de_${GIT_COMMIT}
+#SAVE_DIR=${LANGUAGE_DRIFT}/pretrain_en_de_${GIT_COMMIT}
+#rm $SAVE_DIR -rf
+#python ~/work/language-drift/cli/pretrain.py \
+#	-src_lang .en -tgt_lang .de \
+#	-logging_steps 100 \
+#	-checkpoint_steps 2000 \
+#	-valid_steps 2000 \
+#	-train_steps 100000 \
+#	-start_decay_steps 30000 \
+#	-dropout 0.1 \
+#	-device cuda \
+#	-optim adam \
+#	-learning_rate 0.001 \
+#	-adam_beta2 0.98 \
+#	-save_dir $SAVE_DIR
+
+SAVE_DIR=${LANGUAGE_DRIFT}/pretrain_lm_${GIT_COMMIT}
 rm $SAVE_DIR -rf
-python ~/work/language-drift/cli/pretrain.py \
-	-src_lang .en -tgt_lang .de \
+python ~/work/language-drift/cli/lm_pretrain.py \
 	-logging_steps 100 \
 	-checkpoint_steps 2000 \
 	-valid_steps 2000 \
