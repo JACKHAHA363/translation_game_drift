@@ -56,7 +56,8 @@ class Trainer(BaseTrainer):
                 # Validate
                 if step % self.opt.valid_steps == 0:
                     with torch.no_grad():
-                        self.validate(step=step)
+                        #self.validate(step=step)
+                        pass
 
                 # Get Training batch
                 batch.to(device=self.device)
@@ -128,7 +129,7 @@ class Trainer(BaseTrainer):
                                         tgt=trans_en, tgt_lengths=trans_en_lengths)
 
                 # Train fr_en_agent
-                # [bsz]
+                # [bsz, seq_len]
                 rewards = self.get_rewards(de_batch_results, trans_en, trans_en_lengths)
 
                 # reinforce
@@ -240,12 +241,16 @@ class Trainer(BaseTrainer):
 
     @staticmethod
     def get_rewards(de_batch_results, trans_en, trans_en_lengths):
-        """ Compute the reward.
-            :return rewards: [bsz]
+        """ Compute the rewards. Reward as average_loss per german sentence
+            :param de_batch_results: The result of translate to ger
+            :param trans_en: [bsz, len]
+            :param trans_en_lengths: [bsz, len]
+            :return rewards: [bsz]. One rewards per action
         """
         loss, masks = de_batch_results[2], de_batch_results[5]
-        rewards = -torch.sum(loss * masks,  dim=-1).detach()
-        #rewards = (rewards - rewards.mean()) / rewards.std()
+        batch_loss = torch.sum(loss * masks, dim=-1).detach()
+        lengths = torch.sum(masks, dim=-1)
+        rewards = -batch_loss / lengths
         return rewards
 
     @staticmethod
@@ -484,8 +489,7 @@ class LMFinetune(Trainer):
 
     def get_rewards(self, de_batch_results, trans_en, trans_en_lengths):
         """ Return the rewards """
-        de_rewards = -torch.sum(de_batch_results[2] * de_batch_results[5],  dim=-1).detach()
+        de_rewards = super(LMFinetune, self).get_rewards(de_batch_results, trans_en, trans_en_lengths)
         englishness = self.lm_model.get_lm_reward(trans_en, trans_en_lengths)
         rewards = de_rewards + self.opt.lm_coeff * englishness
-        #rewards = (rewards - rewards.mean()) / rewards.std()
         return rewards

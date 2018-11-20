@@ -209,4 +209,4 @@ def test_language_model():
     assert logprobs.size(2) == len(lm.vocab)
 
     rewards = lm.get_lm_reward(en, en_lengths)
-    assert torch.sum(rewards < 0).item() == rewards.size(0)
+    assert torch.sum(rewards < 0).item() == en.size(0)

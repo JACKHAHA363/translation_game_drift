@@ -190,7 +190,7 @@ class LanguageModel(Model):
         return logprobs, en_out, masks
 
     def get_lm_reward(self, en, en_lengths):
-        """ Give reward of englishness
+        """ Give reward of englishness. Avg logprob in eng sent
             :param en: [bsz, len]
             :param en_lengths: [bsz]
             :return: rewards [bsz] (detach)
@@ -200,5 +200,5 @@ class LanguageModel(Model):
                                     target=en_out.contiguous().view(-1),
                                     reduction='none')
         rewards = -ce_losses.detach().view(masks.size(0), masks.size(1))
-        rewards = torch.sum(rewards * masks, dim=-1)
+        rewards = torch.sum(rewards * masks, dim=-1) / (en_lengths.float() - 1)
         return rewards
