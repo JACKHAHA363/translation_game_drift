@@ -160,7 +160,7 @@ def get_communicate_parser():
 
 def get_communicate_lm_parser():
     """ Return the parser for finetune with LM """
-    parser = get_communicate_parser("finetune PG + LM")
+    parser = get_communicate_parser()
     parser.add_argument('-lm_ckpt', required=True, type=str,
                         help='path to pretrained language model')
     parser.add_argument('-lm_coeff', default=0.5, type=float,
