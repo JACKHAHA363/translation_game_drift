@@ -12,15 +12,18 @@ GIT_COMMIT=`git rev-parse HEAD`
 GIT_COMMIT=${GIT_COMMIT:0:7}
 echo ${GIT_COMMIT}
 
-SAVE_DIR_ROOT=${LANGUAGE_DRIFT}/20181120
+SAVE_DIR_ROOT=${LANGUAGE_DRIFT}/20181118
 mkdir $SAVE_DIR_ROOT -p
 
-SAVE_DIR=${SAVE_DIR_ROOT}/pg_${GIT_COMMIT}
+SAVE_DIR=${SAVE_DIR_ROOT}/pg_lm_${GIT_COMMIT}
 rm $SAVE_DIR -rf
 
 PRETRAIN_FR_EN=${LANGUAGE_DRIFT}/checkpoints/pretrain_fr_en.ckpt
 PRETRAIN_EN_DE=${LANGUAGE_DRIFT}/checkpoints/pretrain_en_de.ckpt
-python ~/work/language-drift/cli/communicate.py \
+PRETRAIN_LM=${LANGUAGE_DRIFT}/checkpoints/pretrain_lm.pt
+python ~/work/language-drift/cli/communicate_lm.py \
+    -lm_ckpt ${PRETRAIN_LM} \
+    -lm_coeff 0.5 \
 	-pretrain_fr_en_ckpt ${PRETRAIN_FR_EN} \
 	-pretrain_en_de_ckpt ${PRETRAIN_EN_DE} \
 	-logging_steps 10 \
