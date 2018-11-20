@@ -11,7 +11,6 @@ import torch
 from ld_research.settings import LOGGER, add_file_handler
 
 
-
 class BaseTrainer(ABC):
     """ Base trainer Define some interface and utilities """
     def __init__(self, opt):

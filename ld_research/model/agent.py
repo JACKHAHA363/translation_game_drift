@@ -183,7 +183,7 @@ class LanguageModel(Model):
         context = self.dropout(context)
 
         # Logits
-        logits = self.linear_out(context.view(-1, self.hidden_size))
+        logits = self.linear_out(context.contiguous().view(-1, self.hidden_size))
         logits = logits.view(en_in.size(0), en_in.size(1),
                              self.emb.num_embeddings)
         logprobs = F.log_softmax(logits, dim=-1)

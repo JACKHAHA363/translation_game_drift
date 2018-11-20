@@ -11,6 +11,7 @@ from ld_research.training.optimizers import Optimizer
 from ld_research.training.base import BaseTrainer
 from ld_research.training.utils import process_batch_update_stats, NMTLoss, StatisticsReport
 
+
 class Trainer(BaseTrainer):
     """ An object for doing pretraining """
     def __init__(self, opt):

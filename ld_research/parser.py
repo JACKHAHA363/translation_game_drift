@@ -157,3 +157,7 @@ def get_communicate_parser():
     parser = add_lr_schedule_args(parser, 'en_de_')
     return parser
 
+
+def get_language_model_parser():
+    """ share the pretrain_parser """
+    return get_pretrain_parser()

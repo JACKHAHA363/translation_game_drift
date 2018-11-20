@@ -323,7 +323,6 @@ class Trainer(BaseTrainer):
 
     def _build_data_loaders(self):
         """ Build datasets """
-
         if self.opt.debug:
             LOGGER.info('Debug mode, overfit on valid data...')
             train_set = Multi30KDataset('valid')
