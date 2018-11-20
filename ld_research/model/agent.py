@@ -178,7 +178,7 @@ class LanguageModel(Model):
 
         # [1, bsz, hidden_size]
         init_states = self.init_state.expand(en.size(0),
-                                             self.hidden_size).unsqueeze(0)
+                                             self.hidden_size).unsqueeze(0).contiguous()
         context, _ = self.gru(en_emb, init_states)
         context = self.dropout(context)
 
