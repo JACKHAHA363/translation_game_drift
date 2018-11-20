@@ -245,7 +245,7 @@ class Trainer(BaseTrainer):
         """
         loss, masks = de_batch_results[2], de_batch_results[5]
         rewards = -torch.sum(loss * masks,  dim=-1).detach()
-        rewards = (rewards - rewards.mean()) / rewards.std()
+        #rewards = (rewards - rewards.mean()) / rewards.std()
         return rewards
 
     @staticmethod
@@ -487,5 +487,5 @@ class LMFinetune(Trainer):
         de_rewards = -torch.sum(de_batch_results[2] * de_batch_results[5],  dim=-1).detach()
         englishness = self.lm_model.get_lm_reward(trans_en, trans_en_lengths)
         rewards = de_rewards + self.opt.lm_coeff * englishness
-        rewards = (rewards - rewards.mean()) / rewards.std()
+        #rewards = (rewards - rewards.mean()) / rewards.std()
         return rewards

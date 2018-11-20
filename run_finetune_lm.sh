@@ -38,6 +38,7 @@ python ~/work/language-drift/cli/communicate_lm.py \
 	-fr_en_start_decay_steps 10000 \
 	-fr_en_decay_steps 500 \
 	-fr_en_learning_rate_decay 0.99 \
+	-fr_en_max_grad_norm 1 \
 	-en_de_optim adam \
 	-en_de_learning_rate 0.001 \
 	-en_de_start_decay_steps 1000 \
