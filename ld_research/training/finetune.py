@@ -129,7 +129,7 @@ class Trainer(BaseTrainer):
 
                 # Train fr_en_agent
                 # [bsz]
-                rewards = self.get_rewards(de_batch_results)
+                rewards = self.get_rewards(de_batch_results, trans_en, trans_en_lengths)
 
                 # reinforce
                 # [bsz, seq_len]
@@ -239,7 +239,7 @@ class Trainer(BaseTrainer):
             torch.save(checkpoint, ckpt_path)
 
     @staticmethod
-    def get_rewards(de_batch_results):
+    def get_rewards(de_batch_results, trans_en, trans_en_lengths):
         """ Compute the reward.
             :return rewards: [bsz]
         """
@@ -473,3 +473,19 @@ class Trainer(BaseTrainer):
         """ Getter """
         return self.optimizers[AgentType.VALUE]
 
+
+class LMFinetune(Trainer):
+    """ Trainer with Language Model """
+    def __init__(self, opt, lm_model):
+        """ Constructor """
+        super(LMFinetune, self).__init__(opt)
+        self.lm_model = lm_model
+        self.lm_model.to(device=self.device)
+
+    def get_rewards(self, de_batch_results, trans_en, trans_en_lengths):
+        """ Return the rewards """
+        de_rewards = -torch.sum(de_batch_results[2] * de_batch_results[5],  dim=-1).detach()
+        englishness = self.lm_model.get_lm_reward(trans_en, trans_en_lengths)
+        rewards = de_rewards + self.opt.lm_coeff * englishness
+        rewards = (rewards - rewards.mean()) / rewards.std()
+        return rewards

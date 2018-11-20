@@ -157,6 +157,14 @@ def get_communicate_parser():
     parser = add_lr_schedule_args(parser, 'en_de_')
     return parser
 
+def get_communicate_lm_parser():
+    """ Return the parser for finetune with LM """
+    parser = get_communicate_parser()
+    parser.add_argument('-lm_ckpt', required=True, type=str,
+                        help='path to pretrained language model')
+    parser.add_argument('-lm_coeff', default=0.5, type=float,
+                        help='coefficient of englishness reward')
+    return parser
 
 def get_language_model_parser():
     """ share the pretrain_parser """
