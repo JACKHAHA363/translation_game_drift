@@ -142,7 +142,7 @@ def get_pretrain_parser():
 
 def get_communicate_parser():
     """ Return the parser for communication task """
-    parser = argparse.ArgumentParser('Pretrain')
+    parser = argparse.ArgumentParser('Finetune PG')
     parser = add_general_args(parser)
     parser = add_communication_args(parser)
     parser = add_agent_args(parser)
@@ -157,15 +157,22 @@ def get_communicate_parser():
     parser = add_lr_schedule_args(parser, 'en_de_')
     return parser
 
+
 def get_communicate_lm_parser():
     """ Return the parser for finetune with LM """
-    parser = get_communicate_parser()
+    parser = get_communicate_parser("finetune PG + LM")
     parser.add_argument('-lm_ckpt', required=True, type=str,
                         help='path to pretrained language model')
     parser.add_argument('-lm_coeff', default=0.5, type=float,
                         help='coefficient of englishness reward')
     return parser
 
+
 def get_language_model_parser():
     """ share the pretrain_parser """
-    return get_pretrain_parser()
+    parser = argparse.ArgumentParser('LM pretrain')
+    parser = add_general_args(parser)
+    parser = add_agent_args(parser)
+    parser = add_optimizer_args(parser)
+    parser = add_lr_schedule_args(parser)
+    return parser
