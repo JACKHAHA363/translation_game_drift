@@ -29,14 +29,14 @@ python ~/work/language-drift/cli/communicate.py \
 	-valid_steps 20 \
 	-train_steps 10000 \
 	-device cuda \
-	-fr_en_optim adam \
 	-ent_coeff 0.001 \
+	-fr_en_optim adam \
 	-fr_en_learning_rate 0.0002 \
 	-fr_en_start_decay_steps 10000 \
 	-fr_en_decay_steps 500 \
 	-fr_en_learning_rate_decay 0.99 \
 	-en_de_optim adam \
-	-en_de_learning_rate 0.000 \
+	-en_de_learning_rate 0.001 \
 	-en_de_start_decay_steps 1000 \
 	-en_de_decay_steps 1000 \
 	-en_de_learning_rate_decay 0.5 \

@@ -22,8 +22,8 @@ PRETRAIN_FR_EN=${LANGUAGE_DRIFT}/checkpoints/pretrain_fr_en.ckpt
 PRETRAIN_EN_DE=${LANGUAGE_DRIFT}/checkpoints/pretrain_en_de.ckpt
 PRETRAIN_LM=${LANGUAGE_DRIFT}/checkpoints/pretrain_lm.pt
 python ~/work/language-drift/cli/communicate_lm.py \
-    -lm_ckpt ${PRETRAIN_LM} \
-    -lm_coeff 0.5 \
+	-lm_ckpt ${PRETRAIN_LM} \
+	-lm_coeff 0.5 \
 	-pretrain_fr_en_ckpt ${PRETRAIN_FR_EN} \
 	-pretrain_en_de_ckpt ${PRETRAIN_EN_DE} \
 	-logging_steps 10 \
@@ -39,7 +39,7 @@ python ~/work/language-drift/cli/communicate_lm.py \
 	-fr_en_decay_steps 500 \
 	-fr_en_learning_rate_decay 0.99 \
 	-en_de_optim adam \
-	-en_de_learning_rate 0.000 \
+	-en_de_learning_rate 0.001 \
 	-en_de_start_decay_steps 1000 \
 	-en_de_decay_steps 1000 \
 	-en_de_learning_rate_decay 0.5 \
