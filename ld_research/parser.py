@@ -26,6 +26,8 @@ def add_communication_args(parser):
                         help='value loss coefficient')
     parser.add_argument('-ent_coeff', default=0.01, type=float,
                         help='entropy loss coefficient')
+    parser.add_argument('-reduce_ent', action='store_true',
+                        help='If true, the entropy loss is inverted to reduce the entropy')
     return parser
 
 

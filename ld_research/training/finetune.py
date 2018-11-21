@@ -139,7 +139,12 @@ class Trainer(BaseTrainer):
                                                                  logprobs=action_logprobs,
                                                                  actions=actions,
                                                                  action_masks=action_masks)
-                fr_en_loss = pg_loss + self.opt.v_coeff * value_loss + self.opt.ent_coeff * ent_loss
+
+                # Invert ent loss if reduce it
+                if self.opt.reduce_ent:
+                    fr_en_loss = pg_loss + self.opt.v_coeff * value_loss - self.opt.ent_coeff * ent_loss
+                else:
+                    fr_en_loss = pg_loss + self.opt.v_coeff * value_loss + self.opt.ent_coeff * ent_loss
                 self.value_optimizer.zero_grad()
                 self.fr_en_optimizer.zero_grad()
                 fr_en_loss.backward()
