@@ -280,7 +280,7 @@ class Trainer(BaseTrainer):
         value_loss = adv.masked_select(action_masks.byte()).pow(2).mean()
 
         # Get ent loss
-        ent = torch.sum(logprobs * logprobs.exp(), dim=-1)  # [bsz, seq_len]
+        ent = -torch.sum(logprobs * logprobs.exp(), dim=-1)  # [bsz, seq_len]
         ent_loss = -ent.masked_select(action_masks.byte()).mean()
         return pg_loss, value_loss, ent_loss
 
