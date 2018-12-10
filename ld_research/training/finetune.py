@@ -304,7 +304,7 @@ class Trainer(BaseTrainer):
         trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
                                                                       src_lengths=trans_en_lengths - 1,
                                                                       max_lengths=100,
-                                                                      method=self.opt.sample_method)
+                                                                      method='greedy')
         return trans_en, trans_en_lengths, trans_de, trans_de_lengths
 
     """
