@@ -246,8 +246,7 @@ class Trainer(BaseTrainer):
             ckpt_path = os.path.join(self.opt.save_dir, ckpt_name)
             torch.save(checkpoint, ckpt_path)
 
-    @staticmethod
-    def get_rewards(de_batch_results, trans_en, trans_en_lengths):
+    def get_rewards(self, de_batch_results, trans_en, trans_en_lengths):
         """ Compute the rewards. Reward as average_loss per german sentence
             :param de_batch_results: The result of translate to ger
             :param trans_en: [bsz, len]
@@ -256,8 +255,10 @@ class Trainer(BaseTrainer):
         """
         loss, masks = de_batch_results[2], de_batch_results[5]
         batch_loss = torch.sum(loss * masks, dim=-1).detach()
-        lengths = torch.sum(masks, dim=-1)
-        rewards = -batch_loss / lengths
+        rewards = -batch_loss
+        if self.opt.norm_reward:
+            lengths = torch.sum(masks, dim=-1)
+            rewards = rewards / lengths
         return rewards
 
     @staticmethod

@@ -28,6 +28,9 @@ def add_communication_args(parser):
                         help='entropy loss coefficient')
     parser.add_argument('-reduce_ent', action='store_true',
                         help='If true, the entropy loss is inverted to reduce the entropy')
+    parser.add_argument('-norm_reward', action='store_true',
+                        help='Whether or not to normalize the reward for sentence length')
+
     return parser
 
 
