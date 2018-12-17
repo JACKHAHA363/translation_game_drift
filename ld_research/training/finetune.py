@@ -65,11 +65,12 @@ class Trainer(BaseTrainer):
                 # Communicate and get translation
                 self.fr_en_agent.eval()
                 self.en_de_agent.eval()
-                trans_en, trans_en_lengths, trans_de, trans_de_lengths = self.communicate(batch)
+                trans_en, trans_en_lengths, trans_de, trans_de_lengths, trans_en_gr, trans_en_gr_lengths = \
+                    self.communicate(batch)
 
                 # Logging train communication
                 if step % self.opt.logging_steps == 0:
-                    en_hypothese = self.en_vocab.to_sentences(trans_en)
+                    en_hypothese = self.en_vocab.to_sentences(trans_en_gr)
                     en_references = [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
                     de_hypothese = self.de_vocab.to_sentences(trans_de)
                     de_references = [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
@@ -94,7 +95,7 @@ class Trainer(BaseTrainer):
 
                     # Print out ENG sentence
                     true_en_sent_sample = self.en_vocab.to_readable_sentences(batch.en[0])
-                    tran_en_sent_sample = self.en_vocab.to_readable_sentences(trans_en[0])
+                    tran_en_sent_sample = self.en_vocab.to_readable_sentences(trans_en_gr[0])
                     LOGGER.info('True En: {}'.format(true_en_sent_sample))
                     LOGGER.info('Tran En: {}'.format(tran_en_sent_sample))
 
@@ -185,8 +186,9 @@ class Trainer(BaseTrainer):
             batch.to(device=self.device)
 
             # Communicate and get translation
-            trans_en, trans_en_lengths, trans_de, trans_de_lengths = self.communicate(batch)
-            en_hypothese += self.en_vocab.to_sentences(trans_en)
+            trans_en, trans_en_lengths, trans_de, trans_de_lengths, trans_en_gr, trans_en_gr_lengths \
+                = self.communicate(batch)
+            en_hypothese += self.en_vocab.to_sentences(trans_en_gr)
             en_references += [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
             de_hypothese += self.de_vocab.to_sentences(trans_de)
             de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
@@ -290,22 +292,28 @@ class Trainer(BaseTrainer):
         return pg_loss, value_loss, ent_loss
 
     def communicate(self, batch):
-        """ From a batch. Translate from French to Germany
-            return: trans_en, trans_en_lengths, trans_de, trans_de_lengths
+        """ From a batch. Translate from French to Germany.
+            return: trans_en, trans_en_lengths, trans_de, trans_de_lengths, trans_en_gr, trans_en_gr_lengths
         """
         batch.to(device=self.device)
 
         # Get translated English
         trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
                                                                       src_lengths=batch.fr_lengths,
-                                                                      max_lengths=batch.en_lengths,
+                                                                      max_lengths=batch.fr_lengths,
                                                                       method=self.opt.sample_method)
         # Get translated Germany
         trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
                                                                       src_lengths=trans_en_lengths - 1,
                                                                       max_lengths=100,
                                                                       method='greedy')
-        return trans_en, trans_en_lengths, trans_de, trans_de_lengths
+
+        # Get greedy translated English
+        trans_en_gr, trans_en_gr_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
+                                                                            src_lengths=batch.fr_lengths,
+                                                                            max_lengths=batch.fr_lengths,
+                                                                            method='greedy')
+        return trans_en, trans_en_lengths, trans_de, trans_de_lengths, trans_en_gr, trans_en_gr_lengths
 
     """
     Private method
