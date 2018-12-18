@@ -7,7 +7,7 @@ import time
 from ld_research.settings import LOGGER, FR, EN, DE
 from ld_research.text import Multi30KLoader, Multi30KDataset
 from ld_research.model import Agent, ValueNetwork
-from ld_research.training.optimizers import Optimizer
+from optimizers import Optimizer
 from ld_research.training.utils import NMTLoss, StatisticsReport, process_batch_update_stats
 from ld_research.training.base import BaseTrainer
 
@@ -70,34 +70,8 @@ class Trainer(BaseTrainer):
 
                 # Logging train communication
                 if step % self.opt.logging_steps == 0:
-                    en_hypothese = self.en_vocab.to_sentences(trans_en_gr)
-                    en_references = [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
-                    de_hypothese = self.de_vocab.to_sentences(trans_de)
-                    de_references = [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
-                    en_train_stats.report_bleu_score(en_references, en_hypothese, self.writer,
-                                                     prefix='train/en', step=step)
-                    de_train_stats.report_bleu_score(de_references, de_hypothese, self.writer,
-                                                     prefix='train/de', step=step)
-
-                    # Logging the length
-                    avg_de_lengths = trans_de_lengths.float().mean().item()
-                    self.writer.add_scalar('train/trans_de_length',
-                                           avg_de_lengths,
-                                           global_step=step)
-                    LOGGER.info('[train/de] {}/{} de_lengths: {}'.format(step, self.opt.train_steps,
-                                                                         avg_de_lengths))
-
-                    # Print out DE sentence
-                    true_de_sent_sample = self.de_vocab.to_readable_sentences(batch.de[0])
-                    tran_de_sent_sample = self.de_vocab.to_readable_sentences(trans_de[0])
-                    LOGGER.info('True De: {}'.format(true_de_sent_sample))
-                    LOGGER.info('Tran De: {}'.format(tran_de_sent_sample))
-
-                    # Print out ENG sentence
-                    true_en_sent_sample = self.en_vocab.to_readable_sentences(batch.en[0])
-                    tran_en_sent_sample = self.en_vocab.to_readable_sentences(trans_en_gr[0])
-                    LOGGER.info('True En: {}'.format(true_en_sent_sample))
-                    LOGGER.info('Tran En: {}'.format(tran_en_sent_sample))
+                    self.logging_training(batch, de_train_stats, en_train_stats,
+                                          step, trans_de, trans_de_lengths, trans_en_gr)
 
                 # Training
                 self.fr_en_agent.train()
@@ -167,6 +141,35 @@ class Trainer(BaseTrainer):
                 step += 1
                 if step > self.opt.train_steps:
                     break
+
+    def logging_training(self, batch, de_train_stats, en_train_stats, step,
+                         trans_de, trans_de_lengths, trans_en_gr):
+        """ Logging training statistics"""
+        en_hypothese = self.en_vocab.to_sentences(trans_en_gr)
+        en_references = [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
+        de_hypothese = self.de_vocab.to_sentences(trans_de)
+        de_references = [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
+        en_train_stats.report_bleu_score(en_references, en_hypothese, self.writer,
+                                         prefix='train/en', step=step)
+        de_train_stats.report_bleu_score(de_references, de_hypothese, self.writer,
+                                         prefix='train/de', step=step)
+        # Logging the length
+        avg_de_lengths = trans_de_lengths.float().mean().item()
+        self.writer.add_scalar('train/trans_de_length',
+                               avg_de_lengths,
+                               global_step=step)
+        LOGGER.info('[train/de] {}/{} de_lengths: {}'.format(step, self.opt.train_steps,
+                                                             avg_de_lengths))
+        # Print out DE sentence
+        true_de_sent_sample = self.de_vocab.to_readable_sentences(batch.de[0])
+        tran_de_sent_sample = self.de_vocab.to_readable_sentences(trans_de[0])
+        LOGGER.info('True De: {}'.format(true_de_sent_sample))
+        LOGGER.info('Tran De: {}'.format(tran_de_sent_sample))
+        # Print out ENG sentence
+        true_en_sent_sample = self.en_vocab.to_readable_sentences(batch.en[0])
+        tran_en_sent_sample = self.en_vocab.to_readable_sentences(trans_en_gr[0])
+        LOGGER.info('True En: {}'.format(true_en_sent_sample))
+        LOGGER.info('Tran En: {}'.format(tran_en_sent_sample))
 
     def validate(self, step):
         """ Validatation """
@@ -272,9 +275,9 @@ class Trainer(BaseTrainer):
         """
         # index get policy log probs
         # [bsz, seq_len]
-        logprobs_f = logprobs.view(-1, logprobs.size(2))
-        actions_f = actions.contiguous().view(-1, 1)
-        indexed_logprobs = logprobs_f.gather(1, actions_f).squeeze(-1)
+        logprobs_flat = logprobs.view(-1, logprobs.size(2))
+        actions_flat = actions.contiguous().view(-1, 1)
+        indexed_logprobs = logprobs_flat.gather(1, actions_flat).squeeze(-1)
         policy_logprobs = indexed_logprobs.view(adv.size(0), adv.size(1))
 
         # Get reinforce loss

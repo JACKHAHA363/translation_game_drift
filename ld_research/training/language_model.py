@@ -9,7 +9,7 @@ from ld_research.training.utils import NMTLoss
 from ld_research.settings import LOGGER, FR, EN
 from ld_research.text import IWSLTDataloader, IWSLTDataset, Vocab
 from ld_research.model import LanguageModel
-from ld_research.training.optimizers import Optimizer
+from optimizers import Optimizer
 from ld_research.training.utils import StatisticsReport
 
 
