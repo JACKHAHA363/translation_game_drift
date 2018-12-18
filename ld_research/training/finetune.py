@@ -7,7 +7,7 @@ import time
 from ld_research.settings import LOGGER, FR, EN, DE
 from ld_research.text import Multi30KLoader, Multi30KDataset
 from ld_research.model import Agent, ValueNetwork
-from optimizers import Optimizer
+from ld_research.training.optimizers import Optimizer
 from ld_research.training.utils import NMTLoss, StatisticsReport, process_batch_update_stats
 from ld_research.training.base import BaseTrainer
 
@@ -265,7 +265,18 @@ class Trainer(BaseTrainer):
         return rewards
 
     @staticmethod
-    def get_rl_loss(adv, logprobs, actions, action_masks):
+    def slice_logprobs(logprobs, actions):
+        """ Index the logprobs with actions as index
+            :param logprobs: [b, len, num_actions]
+            :param actions: [b, len]
+            :return: policy_logprobs: [b, len]
+        """
+        actions_flat = actions.contiguous().view(-1, 1)
+        logprobs_flat = logprobs.view(-1, logprobs.size(2))
+        policy_logprobs = logprobs_flat.gather(1, actions_flat).squeeze(-1)
+        return policy_logprobs.view(actions.size(0), actions.size(1))
+
+    def get_rl_loss(self, adv, logprobs, actions, action_masks):
         """ Return the average policy gradient loss per action
             :param adv: [bsz, seq_len]
             :param logprobs: [bsz, seq_len, nb_actions]
@@ -275,10 +286,7 @@ class Trainer(BaseTrainer):
         """
         # index get policy log probs
         # [bsz, seq_len]
-        logprobs_flat = logprobs.view(-1, logprobs.size(2))
-        actions_flat = actions.contiguous().view(-1, 1)
-        indexed_logprobs = logprobs_flat.gather(1, actions_flat).squeeze(-1)
-        policy_logprobs = indexed_logprobs.view(adv.size(0), adv.size(1))
+        policy_logprobs = self.slice_logprobs(logprobs, actions)
 
         # Get reinforce loss
         detach_adv = adv.detach()

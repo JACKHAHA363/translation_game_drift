@@ -7,7 +7,7 @@ import time
 from ld_research.settings import LOGGER
 from ld_research.text import IWSLTDataset, IWSLTDataloader
 from ld_research.model import Agent
-from optimizers import Optimizer
+from ld_research.training.optimizers import Optimizer
 from ld_research.training.base import BaseTrainer
 from ld_research.training.utils import process_batch_update_stats, NMTLoss, StatisticsReport
 

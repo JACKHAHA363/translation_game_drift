@@ -181,3 +181,15 @@ def get_language_model_parser():
     parser = add_optimizer_args(parser)
     parser = add_lr_schedule_args(parser)
     return parser
+
+
+def get_communicate_ppo_parser():
+    """ Return the parser for finetune with PPO """
+    parser = get_communicate_parser()
+    parser.add_argument('-mini_bsz', default=64, type=int,
+                        help='mini batch size of PPO')
+    parser.add_argument('-ppo_epochs', default=2, type=int,
+                        help='The number of PPO inner epochs')
+    parser.add_argument('-clip_param', default=0.1, type=float,
+                        help='The clipping of importance ratio')
+    return parser
