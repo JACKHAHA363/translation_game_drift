@@ -89,7 +89,10 @@ class Trainer(PGTrainer):
 
                 # Train with PPO
                 # Prepare the mini-batch generator
-                ppo_generator = self.get_ppo_generator(logprobs, masks, values, returns,
+                ppo_generator = self.get_ppo_generator(logprobs=logprobs,
+                                                       masks=masks,
+                                                       values=values,
+                                                       returns=returns,
                                                        mini_bsz=self.opt.mini_bsz)
 
                 for epoch in range(self.opt.ppo_epochs):
@@ -154,12 +157,13 @@ class Trainer(PGTrainer):
         # Detach stuff
         logprobs = logprobs.detach()
         values = values.detach()
+        returns = returns.detach()
 
         # Compute adv
         # Normalize adv with only unmasked
         advs = (returns - values)
-        unmasked_advs = torch.masked_select(advs, mask=masks.byte())
-        advs = (advs - unmasked_advs.mean()) / unmasked_advs.std()
+        masked_advs = torch.masked_select(advs, mask=masks.byte())
+        advs = (advs - masked_advs.mean()) / masked_advs.std()
 
         # get index
         total_size = logprobs.size(0)
