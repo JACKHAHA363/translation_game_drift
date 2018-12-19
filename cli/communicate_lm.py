@@ -5,6 +5,7 @@ import torch
 from ld_research import CommuLMTrainer, get_communicate_lm_parser
 from ld_research.model import LanguageModel
 
+
 def get_agent_state_dict(ckpt_path):
     """ Get agent state_dict from either checkpoint """
     ckpt = torch.load(ckpt_path,
