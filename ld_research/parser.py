@@ -30,7 +30,8 @@ def add_communication_args(parser):
                         help='If true, the entropy loss is inverted to reduce the entropy')
     parser.add_argument('-norm_reward', action='store_true',
                         help='Whether or not to normalize the reward for sentence length')
-
+    parser.add_argument('-disable_dropout', action='store_true',
+                        help='Disable the dropout of both agents and value net when training.')
     return parser
 
 

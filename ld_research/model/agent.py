@@ -40,12 +40,12 @@ class Agent(Model):
         assert isinstance(tgt_vocab, Vocab)
         self.src_vocab = src_vocab
         self.tgt_vocab = tgt_vocab
-        self.add_module('src_emb', torch.nn.Embedding(len(src_vocab),
-                                                      opt.emb_size))
-        self.add_module('tgt_emb', torch.nn.Embedding(len(tgt_vocab),
-                                                      opt.emb_size))
-        self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.hidden_size, dropout=opt.dropout))
-        self.add_module('decoder', GRUDecoder(self.tgt_emb, hidden_size=opt.hidden_size, dropout=opt.dropout))
+        self.src_emb = torch.nn.Embedding(len(src_vocab),
+                                          opt.emb_size)
+        self.tgt_emb = torch.nn.Embedding(len(tgt_vocab),
+                                          opt.emb_size)
+        self.encoder = GRUEncoder(self.src_emb, hidden_size=opt.hidden_size, dropout=opt.dropout)
+        self.decoder = GRUDecoder(self.tgt_emb, hidden_size=opt.hidden_size, dropout=opt.dropout)
 
     def forward(self, src, tgt, src_lengths=None, tgt_lengths=None, with_align=False):
         """ Forwarding
@@ -102,20 +102,27 @@ class Agent(Model):
                                                          method=method)
         return sample_ids, sample_lengths
 
+    def disable_dropout(self):
+        """ Disable dropout """
+        self.encoder.dropout.eval()
+        self.decoder.dropout.eval()
+
 
 class ValueNetwork(Model):
     """ A value Wrapper Model with a GRU """
     def __init__(self, src_vocab, tgt_vocab, opt):
         """ constructor """
         super(ValueNetwork, self).__init__()
-        self.add_module('src_emb', torch.nn.Embedding(len(src_vocab),
-                                                      opt.value_emb_size))
-        self.add_module('tgt_emb', torch.nn.Embedding(len(tgt_vocab),
-                                                      opt.value_emb_size))
-        self.add_module('encoder', GRUEncoder(self.src_emb, hidden_size=opt.value_hidden_size,
-                                              dropout=0.))
-        self.add_module('value_decoder', GRUValueDecoder(self.tgt_emb, hidden_size=opt.value_hidden_size,
-                                                         dropout=0.))
+        self.src_emb = torch.nn.Embedding(len(src_vocab),
+                                          opt.value_emb_size)
+        self.tgt_emb = torch.nn.Embedding(len(tgt_vocab),
+                                          opt.value_emb_size)
+        self.encoder = GRUEncoder(self.src_emb,
+                                  hidden_size=opt.value_hidden_size,
+                                  dropout=0.)
+        self.value_decoder = GRUValueDecoder(self.tgt_emb,
+                                             hidden_size=opt.value_hidden_size,
+                                             dropout=0.)
 
     def forward(self, src, tgt, src_lengths=None, tgt_lengths=None):
         """ Get values
