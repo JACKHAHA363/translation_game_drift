@@ -119,3 +119,4 @@ onmt-runs/
 zzz*
 .pytest_cache
 slurm*
+.vscode/
