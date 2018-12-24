@@ -60,20 +60,15 @@ class Trainer(BaseTrainer):
                         self.validate(step=step)
                         pass
 
-                # Get Training batch
-                batch.to(device=self.device)
-
-                # Communicate and get translation
-                trans_en, trans_en_lengths, trans_de, trans_de_lengths, trans_en_gr, trans_en_gr_lengths = \
-                    self.communicate(batch)
-
-                # Logging train communication
+                # Evaluate on this training batch and logging
                 if step % self.opt.logging_steps == 0:
-                    self.logging_training(batch, de_train_stats, en_train_stats,
-                                          step, trans_de, trans_de_lengths, trans_en_gr)
+                    self.evaluate_train_batch(batch, de_train_stats, en_train_stats, step)
 
                 # Training
                 self._set_train()
+
+                # Communicate and get translation
+                trans_en, trans_en_lengths, trans_de, trans_de_lengths = self.communicate(batch, is_eval=False)
 
                 # Get Germany Loss
                 de_batch_results = process_batch_update_stats(src=trans_en[:, 1:],
@@ -142,16 +137,17 @@ class Trainer(BaseTrainer):
         self.value_optimizer.step()
         self.fr_en_optimizer.step()
 
-    def logging_training(self, batch, de_train_stats, en_train_stats, step,
-                         trans_de, trans_de_lengths, trans_en_gr):
+    def evaluate_train_batch(self, batch, de_train_stats, en_train_stats, step):
         """ Logging training statistics"""
-        en_hypothese = self.en_vocab.to_sentences(trans_en_gr)
-        en_references = [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
-        de_hypothese = self.de_vocab.to_sentences(trans_de)
-        de_references = [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
-        en_train_stats.report_bleu_score(en_references, en_hypothese, self.writer,
+        trans_en, trans_en_lengths, trans_de, trans_de_lengths = self.communicate(batch,
+                                                                                  is_eval=True)
+        en_hyps = self.en_vocab.to_sentences(trans_en)
+        en_refs = [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
+        de_hyps = self.de_vocab.to_sentences(trans_de)
+        de_refs = [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
+        en_train_stats.report_bleu_score(en_refs, en_hyps, self.writer,
                                          prefix='train/en', step=step)
-        de_train_stats.report_bleu_score(de_references, de_hypothese, self.writer,
+        de_train_stats.report_bleu_score(de_refs, de_hyps, self.writer,
                                          prefix='train/de', step=step)
         # Logging the length
         avg_de_lengths = trans_de_lengths.float().mean().item()
@@ -167,7 +163,7 @@ class Trainer(BaseTrainer):
         LOGGER.info('Tran De: {}'.format(tran_de_sent_sample))
         # Print out ENG sentence
         true_en_sent_sample = self.en_vocab.to_readable_sentences(batch.en[0])
-        tran_en_sent_sample = self.en_vocab.to_readable_sentences(trans_en_gr[0])
+        tran_en_sent_sample = self.en_vocab.to_readable_sentences(trans_en[0])
         LOGGER.info('True En: {}'.format(true_en_sent_sample))
         LOGGER.info('Tran En: {}'.format(tran_en_sent_sample))
 
@@ -178,22 +174,22 @@ class Trainer(BaseTrainer):
         en_valid_stats = StatisticsReport()
 
         # For bleu
-        en_hypothese = []
-        en_references = []
-        de_hypothese = []
-        de_references = []
+        en_hyps = []
+        en_refs = []
+        de_hyps = []
+        de_refs = []
 
         # Start main loop
         for batch in self.valid_loader:
             batch.to(device=self.device)
 
             # Communicate and get translation
-            trans_en, trans_en_lengths, trans_de, trans_de_lengths, trans_en_gr, trans_en_gr_lengths \
-                = self.communicate(batch)
-            en_hypothese += self.en_vocab.to_sentences(trans_en_gr)
-            en_references += [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
-            de_hypothese += self.de_vocab.to_sentences(trans_de)
-            de_references += [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
+            trans_en, trans_en_lengths, trans_de, trans_de_lengths = self.communicate(batch,
+                                                                                      is_eval=True)
+            en_hyps += self.en_vocab.to_sentences(trans_en)
+            en_refs += [[en_sent] for en_sent in self.en_vocab.to_sentences(batch.en)]
+            de_hyps += self.de_vocab.to_sentences(trans_de)
+            de_refs += [[de_sent] for de_sent in self.de_vocab.to_sentences(batch.de)]
 
             # Get English stats
             process_batch_update_stats(src=batch.fr, src_lengths=batch.fr_lengths,
@@ -221,13 +217,13 @@ class Trainer(BaseTrainer):
                                        writer=self.writer)
 
         # Bleu Score
-        en_valid_stats.report_bleu_score(en_references, en_hypothese, self.writer,
+        en_valid_stats.report_bleu_score(en_refs, en_hyps, self.writer,
                                          prefix='valid/en', step=step)
-        de_valid_stats.report_bleu_score(de_references, de_hypothese, self.writer,
+        de_valid_stats.report_bleu_score(de_refs, de_hyps, self.writer,
                                          prefix='valid/de', step=step)
 
         # Logging the length
-        avg_de_lengths = sum([len(sent) for sent in de_hypothese]) / float(len(de_hypothese))
+        avg_de_lengths = sum([len(sent) for sent in de_hyps]) / float(len(de_hyps))
         self.writer.add_scalar('valid/trans_de_length',
                                avg_de_lengths,
                                global_step=step)
@@ -314,30 +310,29 @@ class Trainer(BaseTrainer):
         ent_loss = -ent.masked_select(action_masks.byte()).mean()
         return pg_loss, value_loss, ent_loss
 
-    def communicate(self, batch):
+    def communicate(self, batch, is_eval=False):
         """ From a batch. Translate from French to Germany.
-            return: trans_en, trans_en_lengths, trans_de, trans_de_lengths, trans_en_gr, trans_en_gr_lengths
+            :param: batch. A batch of data
+            :param: is_eval: Whether or not this is for BLEU score evaluation
+            :return trans_en, trans_en_lengths, trans_de, trans_de_lengths,
         """
-        self._set_eval()
         batch.to(device=self.device)
+        if is_eval:
+            self._set_eval()
 
-        # Get translated English
+        # Get translated English.
+        # Use "random" for policy gradient
         trans_en, trans_en_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
                                                                       src_lengths=batch.fr_lengths,
                                                                       max_lengths=batch.fr_lengths,
-                                                                      method=self.opt.sample_method)
+                                                                      method='greedy' if is_eval
+                                                                      else self.opt.sample_method)
         # Get translated Germany
         trans_de, trans_de_lengths = self.en_de_agent.batch_translate(src=trans_en[:, 1:],
                                                                       src_lengths=trans_en_lengths - 1,
                                                                       max_lengths=100,
                                                                       method='greedy')
-
-        # Get greedy translated English
-        trans_en_gr, trans_en_gr_lengths = self.fr_en_agent.batch_translate(src=batch.fr,
-                                                                            src_lengths=batch.fr_lengths,
-                                                                            max_lengths=batch.fr_lengths,
-                                                                            method='greedy')
-        return trans_en, trans_en_lengths, trans_de, trans_de_lengths, trans_en_gr, trans_en_gr_lengths
+        return trans_en, trans_en_lengths, trans_de, trans_de_lengths
 
     """
     Private method
