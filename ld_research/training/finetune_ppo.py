@@ -118,7 +118,7 @@ class Trainer(PGTrainer):
         masked_advs = torch.masked_select(ppo_batch.advs, mask=masks.byte())
 
         # Compute policy loss
-        ratio = torch.exp(masked_new_logprobs - masked_old_logprobs)
+        ratio = torch.exp(masked_new_logprobs - masked_new_logprobs.detach())
         surr1 = ratio * masked_advs
         surr2 = torch.clamp(ratio,
                             1. - self.opt.clip_param,
