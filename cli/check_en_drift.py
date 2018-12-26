@@ -1,4 +1,4 @@
-""" Take a checkpoint and translate the sentence
+""" Take a checkpoint and translate the sentence to EN to check drifting
 """
 import torch
 import argparse
