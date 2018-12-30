@@ -3,10 +3,12 @@
 import torch
 import argparse
 import os
+import matplotlib.pyplot as plt
+import numpy as np
 
-from ld_research.text import Multi30KLoader, Multi30KDataset
+from ld_research.text import Multi30KLoader, Multi30KDataset, IWSLTDataset, IWSLTDataloader
 from ld_research.text import Vocab
-from ld_research.settings import FR, EN
+from ld_research.settings import FR, EN, EOS_WORD, BOS_WORD, UNK_WORD
 from ld_research.training.finetune import AgentType
 from ld_research.model import Agent
 
@@ -40,9 +42,25 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-ckpt', nargs='+', required=True,
                         help='Take in a (list of) of checkpoint path.')
+    parser.add_argument('-data', choices=['iwslt', 'multi30k'], default='multi30k',
+                        help='The name of corpus to do token frequency')
     parser.add_argument('-out', required=True,
-                        help='Path to output file.')
+                        help='Path to output translation file.')
     return parser.parse_args()
+
+
+def accumulate_tok_stats(tok_freq, sent):
+    """ Tok_freq: A dictonary of {word: count}. sent a string of sentence """
+    for word in sent.split():
+        tok_freq[word] += 1
+    return tok_freq
+
+
+def to_sorted_np(dict):
+    """ Sorted the values of `dict` and return a np array """
+    result = np.array(list(dict.values()))
+    result[::-1].sort()
+    return result
 
 
 if __name__ == '__main__':
@@ -51,22 +69,62 @@ if __name__ == '__main__':
     agents = {os.path.basename(ckpt_path): get_fr_en_agent(ckpt_path) for ckpt_path in args.ckpt}
     for name in agents:
         agents[name].eval()
-    dataloader = Multi30KLoader(Multi30KDataset('valid'), 200, False)
+    dataloader = Multi30KLoader(Multi30KDataset('valid'), 200, True) if args.data == 'multi30k' else \
+        IWSLTDataloader(IWSLTDataset(src_lang=FR, tgt_lang=EN, mode='valid'), 200, True)
+
+    # Determine Longest name for formatting
+    longest_name_lengths = max([len(name) for name in agents])
+    fmt_output = "{:<%d}\t{}\n" % longest_name_lengths
+
+    # Tok freq analysis
+    tok_freqs = {name: {word: 0 for word in EN_VOCAB.idx2words} for name in agents}
+    ref_tok_freq = {word: 0 for word in EN_VOCAB.idx2words}
+
     with open(args.out, 'w') as f:
         for batch in dataloader:
+            if args.data == 'iwslt':
+                fr = batch.src
+                fr_lengths = batch.src_lengths
+                en = batch.tgt
+            else:
+                fr = batch.fr
+                fr_lengths = batch.fr_lengths
+                en = batch.en
+
             # Translate
-            batch_result = {name: agents[name].batch_translate(src=batch.fr,
-                                                               src_lengths=batch.fr_lengths,
-                                                               max_lengths=batch.fr_lengths,
+            batch_result = {name: agents[name].batch_translate(src=fr,
+                                                               src_lengths=fr_lengths,
+                                                               max_lengths=100,
                                                                method='greedy')[0]
                             for name in agents}
-
-            for batch_idx in range(batch.fr.size(0)):
-                line = "french: {:>10}\nReference: {:>10}\n".format(
-                    FR_VOCAB.to_readable_sentences(batch.fr[batch_idx])[0],
-                    EN_VOCAB.to_readable_sentences(batch.en[batch_idx])[0])
+            for batch_idx in range(fr.size(0)):
+                lines = ""
+                fr_sent = FR_VOCAB.to_readable_sentences(fr[batch_idx])[0]
+                lines += fmt_output.format("Fr", fr_sent)
+                en_sent = EN_VOCAB.to_readable_sentences(en[batch_idx])[0]
+                lines += fmt_output.format("Ref", en_sent)
+                ref_tok_freq = accumulate_tok_stats(ref_tok_freq, en_sent)
                 for name in batch_result:
-                    batch_sent = EN_VOCAB.to_readable_sentences(batch_result[name][batch_idx])[0]
-                    line += "{}: {:>10}\n".format(name, batch_sent)
-                line += '\n'
-                f.write(line)
+                    sent = EN_VOCAB.to_readable_sentences(batch_result[name][batch_idx])[0]
+                    lines += fmt_output.format(name, sent)
+                    tok_freqs[name] = accumulate_tok_stats(tok_freqs[name], sent)
+                lines += '\n'
+                f.write(lines)
+
+    # Adjust the frequency of funtional word
+    for w in [EOS_WORD, BOS_WORD, UNK_WORD]:
+        ref_tok_freq[w] = 0
+        for name in tok_freqs:
+            tok_freqs[name][w] = 0
+
+    # Get token freq - ref token freq after sorting
+    sorted_ref_tf = to_sorted_np(ref_tok_freq)
+    diff_tok_freq = {}
+    for name in tok_freqs:
+        diff_tok_freq[name] = to_sorted_np(tok_freqs[name]) - sorted_ref_tf
+
+    # Plotting
+    plots = {name: plt.plot(np.log(np.arange(1, len(EN_VOCAB) + 1)),
+                            diff_tok_freq[name] / 1000.)[0] for name in diff_tok_freq}
+    plt.legend(list(plots.values()), list(plots.keys()))
+    plt.show()
