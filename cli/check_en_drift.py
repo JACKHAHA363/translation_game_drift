@@ -5,6 +5,7 @@ import argparse
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+from nltk.translate.bleu_score import corpus_bleu
 
 from ld_research.text import Multi30KLoader, Multi30KDataset, IWSLTDataset, IWSLTDataloader
 from ld_research.text import Vocab
@@ -62,11 +63,16 @@ def to_sorted_np(dict):
     result[::-1].sort()
     return result
 
+def get_name(path):
+    """ Get the name without ckpt """
+    name = os.path.basename(path)
+    name = name.split(sep='.')[0]
+    return name
 
 if __name__ == '__main__':
     """ main loop """
     args = get_args()
-    agents = {os.path.basename(ckpt_path): get_fr_en_agent(ckpt_path) for ckpt_path in args.ckpt}
+    agents = {get_name(ckpt_path): get_fr_en_agent(ckpt_path) for ckpt_path in args.ckpt}
     for name in agents:
         agents[name].eval()
     dataloader = Multi30KLoader(Multi30KDataset('valid'), 200, True) if args.data == 'multi30k' else \
@@ -80,6 +86,9 @@ if __name__ == '__main__':
     tok_freqs = {name: {word: 0 for word in EN_VOCAB.idx2words} for name in agents}
     ref_tok_freq = {word: 0 for word in EN_VOCAB.idx2words}
 
+    # BLEU Score
+    hyps = []
+    refs = {name: [] for name in agents}
     with open(args.out, 'w') as f:
         for batch in dataloader:
             if args.data == 'iwslt':
@@ -94,7 +103,7 @@ if __name__ == '__main__':
             # Translate
             batch_result = {name: agents[name].batch_translate(src=fr,
                                                                src_lengths=fr_lengths,
-                                                               max_lengths=100,
+                                                               max_lengths=1000,
                                                                method='greedy')[0]
                             for name in agents}
             for batch_idx in range(fr.size(0)):
@@ -110,6 +119,11 @@ if __name__ == '__main__':
                     tok_freqs[name] = accumulate_tok_stats(tok_freqs[name], sent)
                 lines += '\n'
                 f.write(lines)
+
+            # Collect for BLEU
+            hyps += EN_VOCAB.to_sentences(en)
+            for name in agents:
+                refs[name] += [[sent] for sent in EN_VOCAB.to_sentences(batch_result[name])]
 
     # Adjust the frequency of funtional word
     for w in [EOS_WORD, BOS_WORD, UNK_WORD]:
@@ -127,4 +141,19 @@ if __name__ == '__main__':
     plots = {name: plt.plot(np.log(np.arange(1, len(EN_VOCAB) + 1)),
                             diff_tok_freq[name] / 1000.)[0] for name in diff_tok_freq}
     plt.legend(list(plots.values()), list(plots.keys()))
-    plt.show()
+    plt.xlabel('Vocab (log)')
+    plt.ylabel('Freq Diff (k)')
+    plt.title('Token Frequency - Reference ({})'.format(args.data))
+    plt.savefig('token_freq_{}.png'.format(args.data))
+
+    # Showing BLEU score
+    for name in agents:
+        print('{} BLEU: {:.2f}'.format(name,
+                                       100 * corpus_bleu(list_of_references=refs[name],
+                                                         hypotheses=hyps)))
+
+    # Unique Token / Total Token
+    for name, tok_freq in tok_freqs.items():
+        nb_uniq_tok = len([word for word in tok_freq if tok_freq[word] > 0])
+        total_tok = sum(tok_freq.values())
+        print('Unique Token Percentage {}: {:.2f}'.format(name, nb_uniq_tok / float(total_tok) * 100))
