@@ -84,4 +84,8 @@ python ./cli/communicate.py \
 	-save_dir $SAVE_DIR
 ```
 Add `-reduce_ent` flag to use the opposite of entropy loss. Add `-disable_dropout` flag to not using dropout.
-All flags can be found in `ld_research/parser.py`.
+All flags can be found in `ld_research/parser.py`. Use tensorboard to view the results. Also to check both BLEU score and token frequency analysis, use
+```
+python cli/check_en_drift.py -ckpt [CKPT1] [CKPT2] [CKPT3] \
+    -out translation.txt -data multi30k
+```
