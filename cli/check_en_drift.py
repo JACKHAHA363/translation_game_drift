@@ -66,8 +66,7 @@ def to_sorted_np(dict):
 def get_name(path):
     """ Get the name without ckpt """
     name = os.path.basename(path)
-    name = name.split(sep='.')[0]
-    return name
+    return name[:name.find('ckpt') - 1]
 
 if __name__ == '__main__':
     """ main loop """
