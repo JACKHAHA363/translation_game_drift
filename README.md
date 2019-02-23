@@ -16,7 +16,7 @@ pip install -e .
 ```
 
 # Prepare Dataset
-Run './cli/prepare_dataset'. It would put everythin under `./data` folder.
+Run `./cli/prepare_dataset`. It would put everythin under `./data` folder.
 
 # Pretrain
 Pretrain the fr-de agent and en-de agent by
